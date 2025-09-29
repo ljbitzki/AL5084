@@ -1,5 +1,5 @@
 # AL5084
-Disciplina de Desenvolvimento de Software PPGES Unipampa
+## Diretório de datasets consolidados rotulados
 
 ...
 

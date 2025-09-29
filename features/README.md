@@ -1,6 +1,7 @@
 # AL5084
-Disciplina de Desenvolvimento de Software PPGES Unipampa
+## Diretório de CSVs de features extraídas
 
 ...
+
 
 [Documentação do andamento disponível na Wiki do repositório.](https://github.com/ljbitzki/AL5084/wiki)
