@@ -31,11 +31,11 @@ source .venv/bin/activate
 .venv/bin/python3 al5084.py capture -i enp0s3 -d 10 -o captures/ens0s3.pcap
 ```
 ##### Parâmetros:
-`capture`: Seletor do comando da CLI para acionar a camada de captura/coleta.
-`-i` ou `--iface`: Interface de rede para a captura/coleta (ex: eth0, enp0s3, etc).
-`-d ` ou `--duration`: Tempo em que a captura será encerrada automaticamente (em segundos).
-`-o` ou `--out`: Diretório/nome_do_arquivo_desejado.pcap de saída.
-`s` ou `--snaplen` (opcional): Valor em bytes do snapshot. Ver mais em [SnapLen](https://wiki.wireshark.org/SnapLen).
+- `capture`: Seletor do comando da CLI para acionar a camada de captura/coleta.
+- `-i` ou `--iface`: Interface de rede para a captura/coleta (ex: eth0, enp0s3, etc).
+- `-d ` ou `--duration`: Tempo em que a captura será encerrada automaticamente (em segundos).
+- `-o` ou `--out`: Diretório/nome_do_arquivo_desejado.pcap de saída.
+- `s` ou `--snaplen` (opcional): Valor em bytes do snapshot. Ver mais em [SnapLen](https://wiki.wireshark.org/SnapLen).
 
 #### Estrutura (teórica) deste repositório
 
