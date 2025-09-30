@@ -2,14 +2,16 @@
 Disciplina de Desenvolvimento de Software PPGES Unipampa
 
 #### Ambiente de desenvolvimento (apenas para referência):
-- Sistema Operacional do hospedeiro: Kubuntu 24.04 LTS
+- Sistema Operacional do hospedeiro: Kubuntu Desktop 24.04 LTS
   - Processador AMD Ryzen 5 5600X
   - 32GB de memória RAM
   - GPU GeForce RTX 3070Ti 8GB
+  - Oracle VirtualBox 7.1.4
 
-- Sistema Operacional da VM de desenvolvimento: Ubuntu 22.04 LTS
-  - 6 vCPU
+- Sistema Operacional da VM de desenvolvimento: Ubuntu Server 22.04 LTS
+  - 6 vCPU com PAE/NX
   - 8GB de memória RAM
+  - 64MB de memória VRAM
 
 #### Instalação de dependências e ajustes em nível de Sistema Operacional (pacotes)
 ```
