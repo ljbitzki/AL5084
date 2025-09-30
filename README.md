@@ -1,10 +1,15 @@
 # AL5084
 Disciplina de Desenvolvimento de Software PPGES Unipampa
 
-#### Ambiente de desenvolvimento:
-- Processador AMD Ryzen 5 5600X
-- 8GB de memória RAM
-- Sistema Operacional Ubuntu 22.04 LTS
+#### Ambiente de desenvolvimento (apenas para referência):
+- Sistema Operacional do hospedeiro: Kubuntu 24.04 LTS
+  - Processador AMD Ryzen 5 5600X
+  - 32GB de memória RAM
+  - GPU GeForce RTX 3070Ti 8GB
+
+- Sistema Operacional da VM de desenvolvimento: Ubuntu 22.04 LTS
+  - 6 vCPU
+  - 8GB de memória RAM
 
 #### Instalação de dependências e ajustes em nível de Sistema Operacional (pacotes)
 ```
