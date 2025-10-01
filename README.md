@@ -5,7 +5,7 @@ Disciplina de Desenvolvimento de Software PPGES Unipampa
 - Sistema Operacional do hospedeiro: Kubuntu Desktop 24.04 LTS
   - Processador AMD Ryzen 5 5600X
   - 32GB de memória RAM
-  - GPU GeForce RTX 3070Ti 8GB
+  - GPU GeForce RTX 3070Ti 8GB de memória VRAM
   - Oracle VirtualBox 7.1.4
 
 - Sistema Operacional da VM de desenvolvimento: Ubuntu Server 22.04 LTS
@@ -42,7 +42,7 @@ source .venv/bin/activate
 - `-i` ou `--iface`: Interface de rede para a captura/coleta (ex: eth0, enp0s3, etc).
 - `-d ` ou `--duration`: Tempo em que a captura será encerrada automaticamente (em segundos).
 - `-o` ou `--out`: Diretório/nome_do_arquivo_desejado.pcap de saída.
-- `s` ou `--snaplen` (opcional): Valor em bytes do snapshot. Ver mais em [SnapLen](https://wiki.wireshark.org/SnapLen).
+- `-s` ou `--snaplen` (opcional): Valor em bytes do snapshot. Ver mais em [SnapLen](https://wiki.wireshark.org/SnapLen).
 
 #### Estrutura (teórica) deste repositório
 
