@@ -40,7 +40,7 @@ source .venv/bin/activate
 ##### Parâmetros:
 - `capture`: Seletor do comando da CLI para acionar a camada de captura/coleta.
 - `-i` ou `--iface`: Interface de rede para a captura/coleta (ex: eth0, enp0s3, etc).
-- `-d ` ou `--duration`: Tempo em que a captura será encerrada automaticamente (em segundos).
+- `-d` ou `--duration`: Tempo em que a captura será encerrada automaticamente (em segundos).
 - `-o` ou `--out`: Diretório/nome_do_arquivo_desejado.pcap de saída.
 - `-s` ou `--snaplen` (opcional): Valor em bytes do snapshot. Ver mais em [SnapLen](https://wiki.wireshark.org/SnapLen).
 
