@@ -2,7 +2,7 @@ __pycache__/
 .venv/
 .git/
 captures/*.pcap
-features/.csv
+features/*.csv
 dataset/*.csv
 models/*.csv
 models/*.joblib

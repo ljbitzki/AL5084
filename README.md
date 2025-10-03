@@ -29,20 +29,31 @@ git clone https://github.com/ljbitzki/AL5084.git
 cd AL5084/ || exit 1
 python3 -m venv .venv
 source .venv/bin/activate
-.venv/bin/pip install --upgrade pip
-.venv/bin/pip install -r requirements.txt
+pip install --upgrade pip
+pip install -r requirements.txt
 ```
 
 #### Execução de uma captura/coleta de tráfego
 ```
-.venv/bin/python3 al5084.py capture -i enp0s3 -d 10 -o captures/ens0s3.pcap
+python al5084.py capture -i enp0s3 -d 10 -o captures/ens0s3.pcap
 ```
+
 ##### Parâmetros:
-- `capture`: Seletor do comando da CLI para acionar a camada de captura/coleta.
+- `capture`: Seletor de comando da CLI para acionar a camada de captura/coleta.
 - `-i` ou `--iface`: Interface de rede para a captura/coleta (ex: eth0, enp0s3, etc).
 - `-d` ou `--duration`: Tempo em que a captura será encerrada automaticamente (em segundos).
 - `-o` ou `--out`: Diretório/nome_do_arquivo_desejado.pcap de saída.
 - `-s` ou `--snaplen` (opcional): Valor em bytes do snapshot. Ver mais em [SnapLen](https://wiki.wireshark.org/SnapLen).
+
+#### Execução da extração automatizada de fluxos/features de uma coleta
+```
+python al5084.py features -p captures/arquivo_armazenado.pcap -o features/
+```
+
+##### Parâmetros:
+- `features`: Seletor de comando da CLI para acionar a camada de extração de fluxos/features.
+- `-p` ou `--pcap`: Arquivo .pcap a ser analisado.
+- `-o` ou `--outdir`: Diretório de saída das extrações.
 
 #### Estrutura (teórica) deste repositório
 

@@ -84,13 +84,12 @@ def extract_with_argus(pcap: Path, out_csv: Path) -> Optional[Path]:
             sel,
         ]
         cp = run_cmd(ra_cmd)
-        # ra não imprime header por default
+        # argus não imprime header por default
         header = ",".join(ARGUS_FIELDS) + "\n"
         with open(out_csv, "w", newline="", encoding="utf-8") as f:
             f.write(header)
             f.write(cp.stdout)
     return out_csv
-
 
 #Gera CSV de flows via cicflowmeter (Python port)
 def extract_with_cicflowmeter(pcap: Path, out_csv: Path) -> Optional[Path]:
@@ -132,7 +131,14 @@ def extract_with_tshark(pcap: Path, out_csv: Path) -> Optional[Path]:
     df = pd.read_csv(pkt_csv)
 
     # Normaliza colunas faltantes (quando não TCP/UDP)
-    for c in ["tcp.srcport", "tcp.dstport", "udp.srcport", "udp.dstport", "tcp.window_size_value", "tcp.flags"]:
+    for c in [
+        "tcp.srcport",
+        "tcp.dstport",
+        "udp.srcport",
+        "udp.dstport",
+        "tcp.window_size_value",
+        "tcp.flags"
+        ]:
         if c not in df.columns:
             df[c] = np.nan
 
@@ -207,7 +213,6 @@ def extract_with_scapy(pcap: Path, out_csv: Path) -> Optional[Path]:
     if not SCAPY_AVAILABLE:
         return None
     features: Dict[Tuple[str, int, str, int, int], List[Tuple[float, int, int, Optional[int], Optional[int]]]] = {}
-    # value: list of (epoch, pkt_len, payload_len, tcp_window, tcp_flags_int)
     def key_from_pkt(pkt) -> Optional[Tuple[str, int, str, int, int]]:
         ip, proto, sport, dport = None, None, 0, 0
         if IP in pkt:
