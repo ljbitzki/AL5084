@@ -338,7 +338,7 @@ def extract_features(pcap: Path, out_dir: Path) -> List[Path]:
     """
     out_dir.mkdir(parents=True, exist_ok=True)
     generated: List[Path] = []
-    # 1) Argus (flows ricos)
+    # 1) Argus (flows padrão da ferramenta)
     argus_csv = out_dir / (pcap.stem + ".argus.csv")
     if extract_with_argus(pcap, argus_csv):
         generated.append(argus_csv)

@@ -23,7 +23,6 @@ sudo chmod +x /usr/bin/dumpcap
 Os comandos `sudo dpkg-reconfigure wireshark-common` e `sudo chmod +x /usr/bin/dumpcap` são necessários para possibilitar a captura de pacotes através do usuário corrente, sem a necessidade da execução como `root`.
 
 #### Clonar o repositório, iniciar um ambiente virtual e instalar os pacotes Python necessários com o gerenciador `pip`
-
 ```
 git clone https://github.com/ljbitzki/AL5084.git
 cd AL5084/ || exit 1
