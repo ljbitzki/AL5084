@@ -16,12 +16,12 @@ def main():
     ap_cap = sub.add_parser("capture", help="Capturar PCAP de uma interface")
     ap_cap.add_argument("-i", "--iface", required=True, help="Interface (ex: enp0s3, eth0, etc)")
     ap_cap.add_argument("-d", "--duration", type=int, default=60, help="Duração (s)")
-    ap_cap.add_argument("-o", "--out", required=True, type=Path, help="Arquivo .pcap de saída")
+    ap_cap.add_argument("-o", "--outdir", required=True, type=Path, help="Direório de saída dos arquivos .pcap")
     ap_cap.add_argument("-s", "--snaplen", type=int, default=96, help="Snaplen (bytes)")
 
     ap_feat = sub.add_parser("features", help="Extrair features de um PCAP")
-    ap_feat.add_argument("-p", "--pcap", required=True, type=Path)
-    ap_feat.add_argument("-o", "--outdir", required=True, type=Path)
+    ap_feat.add_argument("-p", "--pcap", required=True, type=Path, help="Arquivos .pcap para extração")
+    ap_feat.add_argument("-o", "--outdir", required=True, type=Path, help="Direório de saída dos arquivos .csv")
 
     args = ap.parse_args()
 
