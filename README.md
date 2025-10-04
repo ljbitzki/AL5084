@@ -23,7 +23,6 @@ sudo chmod +x /usr/bin/dumpcap
 Os comandos `sudo dpkg-reconfigure wireshark-common` e `sudo chmod +x /usr/bin/dumpcap` são necessários para possibilitar a captura de pacotes através do usuário corrente, sem a necessidade da execução como `root`.
 
 #### Clonar o repositório, iniciar um ambiente virtual e instalar os pacotes Python necessários com o gerenciador `pip`
-
 ```
 git clone https://github.com/ljbitzki/AL5084.git
 cd AL5084/ || exit 1
@@ -35,14 +34,14 @@ pip install -r requirements.txt
 
 #### Execução de uma captura/coleta de tráfego
 ```
-python al5084.py capture -i enp0s3 -d 10 -o captures/ens0s3.pcap
+python al5084.py capture -i enp0s3 -d 10 -o captures/
 ```
 
 ##### Parâmetros:
 - `capture`: Seletor de comando da CLI para acionar a camada de captura/coleta.
 - `-i` ou `--iface`: Interface de rede para a captura/coleta (ex: eth0, enp0s3, etc).
 - `-d` ou `--duration`: Tempo em que a captura será encerrada automaticamente (em segundos).
-- `-o` ou `--out`: Diretório/nome_do_arquivo_desejado.pcap de saída.
+- `-o` ou `--outdir`: Diretório/nome_do_arquivo_desejado.pcap de saída.
 - `-s` ou `--snaplen` (opcional): Valor em bytes do snapshot. Ver mais em [SnapLen](https://wiki.wireshark.org/SnapLen).
 
 #### Execução da extração automatizada de fluxos/features de uma coleta

@@ -1,6 +1,7 @@
 """..."""
 import shutil
 import time
+from datetime import datetime
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -42,9 +43,12 @@ def to_epoch(ts: datetime) -> float:
     """Conversão para em unix timestamp"""
     return ts.replace(tzinfo=timezone.utc).timestamp()
 
-def capture_pcap(output: Path, interface: str, duration: int, snaplen: int = 96) -> None:
+def capture_pcap(output: str, interface: str, duration: int, snaplen: int = 96) -> None:
     """Captura/coleta"""
+    now = datetime.now()
+    filename = now.strftime("%Y%m%d-%I%M%S") + '.pcap'
     ensure_dir(output)
+    out = str(output) + '/' + str(filename)
     tshark = which_or_none("tshark")
     tcpdump = which_or_none("tcpdump")
     if tshark:
@@ -55,14 +59,14 @@ def capture_pcap(output: Path, interface: str, duration: int, snaplen: int = 96)
             "-a",
             f"duration:{duration}",
             "-w",
-            str(output),
+            str(out),
             "-s",
             str(snaplen),
         ]
         run_cmd(cmd)
         return
     if tcpdump:
-        cmd = [tcpdump, "-i", interface, "-G", str(duration), "-W", "1", "-s", str(snaplen), "-w", str(output)]
+        cmd = [tcpdump, "-i", interface, "-G", str(duration), "-W", "1", "-s", str(snaplen), "-w", str(out)]
         run_cmd(cmd)
         return
     if not SCAPY_AVAILABLE:
@@ -70,4 +74,4 @@ def capture_pcap(output: Path, interface: str, duration: int, snaplen: int = 96)
 
     print("[WARN] Capturando via Scapy (fallback). Pode haver perda sob alta taxa.", file=sys.stderr)
     pkts = sniff(iface=interface, timeout=duration)
-    wrpcap(str(output), pkts)
+    wrpcap(str(out), pkts)
