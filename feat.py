@@ -1,4 +1,4 @@
-"""..."""
+"""Extração de features para dataset"""
 import os
 import shutil
 import subprocess
@@ -43,7 +43,7 @@ def run_cmd(cmd: List[str], timeout: Optional[int] = None) -> subprocess.Complet
     except Exception as e:
         raise RuntimeError(f"Falha ao executar {' '.join(cmd)}: {e}") from e
     if cp.returncode != 0:
-        # Não aborta automaticamente; devolve stderr útil para diagnóstico.
+        #Não aborta automaticamente, devolve stderr útil para diagnóstico.
         raise RuntimeError(
             f"Comando falhou (rc={cp.returncode}): {' '.join(cmd)}\nSTDERR:\n{cp.stderr[:1000]}"
         )
@@ -72,7 +72,7 @@ def extract_with_argus(pcap: Path, out_csv: Path) -> Optional[Path]:
     with tempfile.TemporaryDirectory() as td:
         argus_bin = [argus, "-r", str(pcap), "-w", os.path.join(td, "argus.out")]
         run_cmd(argus_bin)
-        # -c , separador CSV; -s seleciona campos
+        #-c , separador CSV; -s seleciona campos
         sel = ",".join(ARGUS_FIELDS)
         ra_cmd = [
             ra,
@@ -84,7 +84,7 @@ def extract_with_argus(pcap: Path, out_csv: Path) -> Optional[Path]:
             sel,
         ]
         cp = run_cmd(ra_cmd)
-        # argus não imprime header por default
+        #Argus não imprime header por default
         header = ",".join(ARGUS_FIELDS) + "\n"
         with open(out_csv, "w", newline="", encoding="utf-8") as f:
             f.write(header)
@@ -98,7 +98,7 @@ def extract_with_cicflowmeter(pcap: Path, out_csv: Path) -> Optional[Path]:
     if not cfm:
         return None
     ensure_dir(out_csv)
-    # CLI típico: cicflowmeter -f input.pcap -c output.csv
+    #CLI típico: cicflowmeter -f input.pcap -c output.csv
     run_cmd([cfm, "-f", str(pcap), "-c", str(out_csv)])
     return out_csv
 
@@ -123,14 +123,14 @@ def extract_with_tshark(pcap: Path, out_csv: Path) -> Optional[Path]:
     for f in TSHARK_FIELDS:
         cmd += ["-e", f]
     cp = run_cmd(cmd)
-    # CSV per-packet
+    #CSV per-packet
     pkt_csv = out_csv.with_suffix(".packets.csv")
     with open(pkt_csv, "w", encoding="utf-8") as f:
         f.write(cp.stdout)
-    # Agregar em flows (direcionais)
+    #Agregar em flows (direcionais)
     df = pd.read_csv(pkt_csv)
 
-    # Normaliza colunas faltantes (quando não TCP/UDP)
+    #Normaliza colunas faltantes (quando não TCP/UDP)
     for c in [
         "tcp.srcport",
         "tcp.dstport",
@@ -142,16 +142,14 @@ def extract_with_tshark(pcap: Path, out_csv: Path) -> Optional[Path]:
         if c not in df.columns:
             df[c] = np.nan
 
-    # Usar fillna entre colunas em vez de operações com DataFrame
+    #Usar fillna entre colunas em vez de operações com DataFrame
     df["srcport"] = df["tcp.srcport"].fillna(df["udp.srcport"]).fillna(0).astype(int)
     df["dstport"] = df["tcp.dstport"].fillna(df["udp.dstport"]).fillna(0).astype(int)
-
     df["proto"] = pd.to_numeric(df.get("ip.proto", 0), errors="coerce").fillna(0).astype(int)
     df["time"] = pd.to_numeric(df["frame.time_epoch"], errors="coerce")
     df["len"] = pd.to_numeric(df["frame.len"], errors="coerce").fillna(0).astype(int)
     df["tcp_window"] = pd.to_numeric(df["tcp.window_size_value"], errors="coerce")
     df["tcp_flags"] = df["tcp.flags"].fillna("").astype(str)
-
     key_cols = ["ip.src", "ip.dst", "srcport", "dstport", "proto"]
     df = df.dropna(subset=["ip.src", "ip.dst", "time"])
 
@@ -180,7 +178,7 @@ def extract_with_tshark(pcap: Path, out_csv: Path) -> Optional[Path]:
         )
 
     flows = df.groupby(key_cols, dropna=False).apply(aggregate).reset_index()
-    # Gera flow_id
+    #Gera flow_id
     flows["flow_id"] = (
         flows["ip.src"]
         + ":"
@@ -338,22 +336,28 @@ def extract_features(pcap: Path, out_dir: Path) -> List[Path]:
     """
     out_dir.mkdir(parents=True, exist_ok=True)
     generated: List[Path] = []
-    # 1) Argus (flows padrão da ferramenta)
+    
+    #1) Argus (flows padrão da ferramenta)
     argus_csv = out_dir / (pcap.stem + ".argus.csv")
     if extract_with_argus(pcap, argus_csv):
         generated.append(argus_csv)
-    # 2) CICFlowMeter (83+ features orientadas a IDS)
+    
+    #2) CICFlowMeter (83+ features orientadas a IDS)
     cic_csv = out_dir / (pcap.stem + ".cic.csv")
     if extract_with_cicflowmeter(pcap, cic_csv):
         generated.append(cic_csv)
-    # 3) TShark per-packet → agregação (features básicas + flags)
+    
+    #3) TShark per-packet → agregação (features básicas + flags)
     tshark_csv = out_dir / (pcap.stem + ".tsharkflows.csv")
     if extract_with_tshark(pcap, tshark_csv):
         generated.append(tshark_csv)
-    # 4) Fallback Scapy (sempre tenta por último para garantir algo)
+    
+    #4) Fallback Scapy (sempre tenta por último para garantir algo)
     scapy_csv = out_dir / (pcap.stem + ".scapyflows.csv")
     if extract_with_scapy(pcap, scapy_csv):
         generated.append(scapy_csv)
+    
+    #5) Algo deu errado e nada foi gerado
     if not generated:
         raise RuntimeError("Falha: nenhuma ferramenta conseguiu gerar features.")
     return generated
