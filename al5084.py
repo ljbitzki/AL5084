@@ -1,4 +1,4 @@
-"""..."""
+"""CLI"""
 import argparse
 from pathlib import Path
 import cap as mCAP
@@ -21,12 +21,12 @@ def main():
 
     ap_feat = sub.add_parser("features", help="Extrair features de um PCAP")
     ap_feat.add_argument("-p", "--pcap", required=True, type=Path, help="Arquivos .pcap para extração")
-    ap_feat.add_argument("-o", "--outdir", required=True, type=Path, help="Direório de saída dos arquivos .csv")
+    ap_feat.add_argument("-o", "--outdir", required=True, type=Path, help="Diretório de saída dos arquivos .csv")
 
     args = ap.parse_args()
 
     if args.cmd == "capture":
-        mCAP.capture_pcap(args.out, args.iface, args.duration, snaplen=args.snaplen)
+        mCAP.capture_pcap(args.outdir, args.iface, args.duration, snaplen=args.snaplen)
 
     if args.cmd == "features":
         out_csvs = mFEAT.extract_features(args.pcap, args.outdir)
