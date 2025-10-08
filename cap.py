@@ -1,4 +1,4 @@
-"""..."""
+"""Captura/coleta .pcap"""
 import shutil
 import time
 from datetime import datetime
@@ -66,7 +66,18 @@ def capture_pcap(output: str, interface: str, duration: int, snaplen: int = 96) 
         run_cmd(cmd)
         return
     if tcpdump:
-        cmd = [tcpdump, "-i", interface, "-G", str(duration), "-W", "1", "-s", str(snaplen), "-w", str(out)]
+        cmd = [
+            tcpdump,
+            "-i",
+            interface,
+            "-G",
+            str(duration),
+            "-W",
+            "1",
+            "-s",
+            str(snaplen),
+            "-w", str(out)
+            ]
         run_cmd(cmd)
         return
     if not SCAPY_AVAILABLE:

@@ -12,23 +12,17 @@ import pandas as pd
 import numpy as np
 
 ARGUS_FIELDS = [
-    "stime", "ltime", "dur", "saddr", "sport", "dir", "daddr", "dport", "proto",
-    "state", "pkts", "bytes", "spkts", "dpkts", "sbytes", "dbytes", "tos", "stos", "dtos",
-    "apply", "swin", "dwin", "sco", "dco", "trans", "rate",
+    "stime", "ltime", "dur", "saddr", "sport",
+    "dir", "daddr", "dport", "proto", "state",
+    "pkts", "bytes", "spkts", "dpkts", "sbytes",
+    "dbytes", "tos", "stos", "dtos", "apply",
+    "swin", "dwin", "sco", "dco", "trans", "rate",
 ]
 
 TSHARK_FIELDS = [
-    "frame.time_epoch",
-    "ip.src",
-    "ip.dst",
-    "tcp.srcport",
-    "tcp.dstport",
-    "udp.srcport",
-    "udp.dstport",
-    "ip.proto",
-    "frame.len",
-    "tcp.flags",
-    "tcp.window_size_value",
+    "frame.time_epoch", "ip.src", "ip.dst", "tcp.srcport",
+    "tcp.dstport", "udp.srcport", "udp.dstport", "ip.proto",
+    "frame.len", "tcp.flags", "tcp.window_size_value",
 ]
 
 def which_or_none(prog: str) -> Optional[str]:
@@ -336,27 +330,27 @@ def extract_features(pcap: Path, out_dir: Path) -> List[Path]:
     """
     out_dir.mkdir(parents=True, exist_ok=True)
     generated: List[Path] = []
-    
+
     #1) Argus (flows padrão da ferramenta)
     argus_csv = out_dir / (pcap.stem + ".argus.csv")
     if extract_with_argus(pcap, argus_csv):
         generated.append(argus_csv)
-    
+
     #2) CICFlowMeter (83+ features orientadas a IDS)
     cic_csv = out_dir / (pcap.stem + ".cic.csv")
     if extract_with_cicflowmeter(pcap, cic_csv):
         generated.append(cic_csv)
-    
+
     #3) TShark per-packet → agregação (features básicas + flags)
     tshark_csv = out_dir / (pcap.stem + ".tsharkflows.csv")
     if extract_with_tshark(pcap, tshark_csv):
         generated.append(tshark_csv)
-    
+
     #4) Fallback Scapy (sempre tenta por último para garantir algo)
     scapy_csv = out_dir / (pcap.stem + ".scapyflows.csv")
     if extract_with_scapy(pcap, scapy_csv):
         generated.append(scapy_csv)
-    
+
     #5) Algo deu errado e nada foi gerado
     if not generated:
         raise RuntimeError("Falha: nenhuma ferramenta conseguiu gerar features.")
