@@ -77,7 +77,7 @@ def handle_features():
     console.print(f"\n[yellow]Executando a extração de features/fluxos do '{pcap} no diretório '{f_outdir}'[/yellow]")
     out_csvs = mFEAT.extract_features(Path(pcap), Path(f_outdir))
     console.print("\n".join(map(str, out_csvs)))
-    console.print("[green]✓ Extração concluída![/green]")
+    console.print("[green]Extração concluída![/green]")
 
 def main():
     while True:

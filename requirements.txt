@@ -11,5 +11,6 @@ rich>=14.1.0
 scapy>=2.6.1
 scipy>=1.15.3
 six>=1.17.0
+streamlit>=1.50.0
 tzdata>=2025.2
 urllib3>=2.5.0
