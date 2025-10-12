@@ -16,7 +16,7 @@ Disciplina de Desenvolvimento de Software PPGES Unipampa
 #### Instalação de dependências e ajustes em nível de Sistema Operacional (pacotes)
 ```
 sudo apt update
-sudo apt install tshark tcpdump python3-venv wireshark git -y
+sudo apt install tshark tcpdump python3-venv wireshark redis git -y
 sudo dpkg-reconfigure wireshark-common
 sudo chmod +x /usr/bin/dumpcap
 ```
@@ -53,6 +53,41 @@ python al5084.py features -p captures/arquivo_armazenado.pcap -o features/
 - `features`: Seletor de comando da CLI para acionar a camada de extração de fluxos/features.
 - `-p` ou `--pcap`: Arquivo .pcap a ser analisado.
 - `-o` ou `--outdir`: Diretório de saída das extrações.
+
+#### Execução da geração de dataset a partir de um arquivo de features/fluxos extraídos
+
+```
+python al5084.py build-ds -c features/captura.scapyflows.csv -o datasets/ -l labels.csv --default-label OK
+```
+
+##### Parâmetros:
+- `build-ds`: Seletor de comando da CLI para acionar a camada de geração de dataset.
+- `-c` ou `--csvs`: Arquivo(s) CSVs de features
+- `-o` ou `--outdir`: Diretório de saída do dataset (padrão: datasets/).
+- `-l` ou `--labels`: arquivo.csv de labels (flow_id,label ou 5-tupla+label).
+- `--default-label`: Rótulo padrão (ex: OK/SUSPECT)
+
+#### Utilizando Streamlit:
+##### Executar o Streamlit em um terminal:
+
+```
+streamlit run al5084_streamlit.py
+```
+
+##### Executar o Celery em outro terminal:
+
+```
+celery -A tasks worker --loglevel=info
+```
+
+##### Abrir a instância do Streamlit no navegador:
+
+`http://localhost:8501`
+
+#### Execução da extração automatizada de fluxos/features de uma coleta
+```
+python al5084.py features -p captures/arquivo_armazenado.pcap -o features/
+```
 
 #### Estrutura (teórica) deste repositório
 
