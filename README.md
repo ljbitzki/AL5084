@@ -32,6 +32,8 @@ pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
+---
+
 #### Execução de uma captura/coleta de tráfego
 ```
 python al5084.py capture -i enp0s3 -d 10 -o captures/
@@ -67,7 +69,10 @@ python al5084.py build-ds -c features/captura.scapyflows.csv -o datasets/ -l lab
 - `-l` ou `--labels`: arquivo.csv de labels (flow_id,label ou 5-tupla+label).
 - `--default-label`: Rótulo padrão (ex: OK/SUSPECT)
 
+---
+
 #### Utilizando Streamlit:
+
 ##### Executar o Streamlit em um terminal:
 
 ```
