@@ -3,6 +3,6 @@ __pycache__/
 .git/
 captures/*.pcap
 features/*.csv
-dataset/*.csv
+datasets/*.csv
 models/*.csv
 models/*.joblib

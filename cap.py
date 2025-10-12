@@ -64,7 +64,7 @@ def capture_pcap(output: str, interface: str, duration: int, snaplen: int = 96) 
             str(snaplen),
         ]
         run_cmd(cmd)
-        return
+        return out
     if tcpdump:
         cmd = [
             tcpdump,
@@ -79,7 +79,7 @@ def capture_pcap(output: str, interface: str, duration: int, snaplen: int = 96) 
             "-w", str(out)
             ]
         run_cmd(cmd)
-        return
+        return out
     if not SCAPY_AVAILABLE:
         raise RuntimeError("Nenhum capturador encontrado (tshark/tcpdump/scapy). Instale pelo menos um.")
 
