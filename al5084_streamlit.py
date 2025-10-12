@@ -2,6 +2,7 @@ import glob
 import os
 import time
 import sys
+import pandas as pd
 import streamlit as st
 from streamlit_autorefresh import st_autorefresh
 from pathlib import Path
@@ -16,7 +17,7 @@ def main():
     st.set_page_config(page_title="AL5084 - Disciplina de Desenvolvimento de Software PPGES Unipampa", page_icon="")
     st.title("AL5084 - Disciplina de Desenvolvimento de Software PPGES Unipampa")
     
-    command = st.sidebar.selectbox("Comandos de captura/extração", ["Captura/Coleta", "Features/Fluxos", "Geração de Datasets"])
+    command = st.sidebar.selectbox("Comandos de captura/extração", ["Captura/Coleta", "Features/Fluxos", "Ver Fluxos", "Geração de Datasets"])
     
     if command == "Captura/Coleta":
         st.header("Captura/coleta de tráfego")
@@ -122,7 +123,7 @@ def main():
         selected_file = st.selectbox("Selecione o arquivo CSV para ser processado:", csv_files)
         ds_outdir = st.text_input("Diretório de saída dos datasets", value="datasets/", placeholder="datasets/", key="ds_outdir")
         labels = st.text_input("Selecione o arquivo CSV com os rótulos:", value="labels.csv", placeholder="labels.csv", key="labels")
-        default_label = st.text_input("Digite o rótulo padrão para fluxos sem rótulo:", value="SUSPECT", placeholder="SUSPECT/OK", key="default_label")
+        default_label = st.text_input("Digite o rótulo padrão para fluxos sem rótulo:", value="OK", placeholder="SUSPECT/OK", key="default_label")
 
         if st.button("Geração de dataset", type="primary"):
             if not ds_outdir or not labels or not default_label:
@@ -152,6 +153,20 @@ def main():
             else:
                 st.error("Falha na geração!")
                 st.session_state.pop("task_id", None)
+
+    elif command == "Ver Fluxos":
+        st.header("Ver Fluxos")
+
+        ds_dir = Path('features/')
+        list_csvs = ds_dir.glob('*.csv')
+        csv_files = [str(f) for f in list_csvs]
+        selected_file = st.selectbox("Selecione o arquivo CSV para ser processado:", csv_files)
+        if selected_file is not None:
+            try:
+                df = pd.read_csv(selected_file)
+                st.dataframe(df)
+            except Exception as e:
+                st.error(f"Error reading CSV file: {e}")
 
 if __name__ == "__main__":
     main()
