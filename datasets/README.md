@@ -1,6 +1,6 @@
 # AL5084
-## Diretório de datasets consolidados rotulados
+## Directory of consolidated labeled datasets
 
 ...
 
-[Documentação do andamento disponível na Wiki do repositório.](https://github.com/ljbitzki/AL5084/wiki)
+[Progress documentation available on the repository Wiki.](https://github.com/ljbitzki/AL5084/wiki)
