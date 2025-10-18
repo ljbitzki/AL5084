@@ -6,29 +6,29 @@ import feat as mFEAT
 import ds as mDS
 
 def main():
-    """Função principal"""
+    """Main function"""
     ap = argparse.ArgumentParser(
         prog="al5084",
-        description="Pipeline de captura, extração de features, geração de dataset e ML para tráfego de rede.",
+        description="Pipeline for capture, feature extraction, dataset generation, and ML for network traffic.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     sub = ap.add_subparsers(dest="cmd", required=True)
 
-    ap_cap = sub.add_parser("capture", help="Capturar PCAP de uma interface")
+    ap_cap = sub.add_parser("capture", help="Capture PCAP from an interface")
     ap_cap.add_argument("-i", "--iface", required=True, help="Interface (ex: enp0s3, eth0, etc)")
-    ap_cap.add_argument("-d", "--duration", type=int, default=60, help="Duração (s)")
-    ap_cap.add_argument("-o", "--outdir", required=True, type=Path, help="Direório de saída dos arquivos .pcap")
+    ap_cap.add_argument("-d", "--duration", type=int, default=60, help="Duration (s)")
+    ap_cap.add_argument("-o", "--outdir", required=True, type=Path, help="Output directory for .pcap files")
     ap_cap.add_argument("-s", "--snaplen", type=int, default=96, help="Snaplen (bytes)")
 
-    ap_feat = sub.add_parser("features", help="Extrair features de um PCAP")
-    ap_feat.add_argument("-p", "--pcap", required=True, type=Path, help="Arquivos .pcap para extração")
-    ap_feat.add_argument("-o", "--outdir", required=True, type=Path, help="Diretório de saída dos arquivos .csv")
+    ap_feat = sub.add_parser("features", help="Extract features from a PCAP")
+    ap_feat.add_argument("-p", "--pcap", required=True, type=Path, help=".pcap files for extraction")
+    ap_feat.add_argument("-o", "--outdir", required=True, type=Path, help="Output directory for .csv files")
 
-    ap_ds = sub.add_parser("build-ds", help="Consolidar CSVs de features em dataset final")
-    ap_ds.add_argument("-c", "--csvs", required=True, nargs="+", type=Path, help="Lista de CSVs de features")
-    ap_ds.add_argument("-o", "--outdir", required=True, type=Path, help="Dataset CSV de saída")
-    ap_ds.add_argument("-l", "--labels", type=Path, default=None, help="CSV de labels (flow_id,label ou 5-tupla+label)")
-    ap_ds.add_argument("--default-label", type=str, default=None, help="Rótulo padrão (ex: normal/malicious)")
+    ap_ds = sub.add_parser("build-ds", help="Consolidate feature CSVs into final dataset")
+    ap_ds.add_argument("-c", "--csvs", required=True, nargs="+", type=Path, help="Feature CSV List")
+    ap_ds.add_argument("-o", "--outdir", required=True, type=Path, help="Output CSV dataset")
+    ap_ds.add_argument("-l", "--labels", type=Path, default=None, help="Labels CSV (flow_id,label ou 5-tupla+label)")
+    ap_ds.add_argument("--default-label", type=str, default=None, help="Default label (ex: OK/SUSPECT)")
 
     args = ap.parse_args()
 

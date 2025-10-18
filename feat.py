@@ -26,38 +26,38 @@ TSHARK_FIELDS = [
 ]
 
 def which_or_none(prog: str) -> Optional[str]:
-    """Verifica se o executável existe"""
+    """Checks if the executable exists"""
     return shutil.which(prog)
 
 def run_cmd(cmd: List[str], timeout: Optional[int] = None) -> subprocess.CompletedProcess:
-    """Executa comando com logging mínimo e valida retorno."""
+    """Executes command with minimal logging and validates return."""
     print(f"[CMD] {' '.join(cmd)}", file=sys.stderr)
     try:
         cp = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, check=False)
     except Exception as e:
-        raise RuntimeError(f"Falha ao executar {' '.join(cmd)}: {e}") from e
+        raise RuntimeError(f"Failed to execute {' '.join(cmd)}: {e}") from e
     if cp.returncode != 0:
-        #Não aborta automaticamente, devolve stderr útil para diagnóstico.
+        # Does not automatically abort, returns stderr useful for diagnostics.
         raise RuntimeError(
-            f"Comando falhou (rc={cp.returncode}): {' '.join(cmd)}\nSTDERR:\n{cp.stderr[:1000]}"
+            f"Command failed (rc={cp.returncode}): {' '.join(cmd)}\nSTDERR:\n{cp.stderr[:1000]}"
         )
     return cp
 
 def ensure_dir(p: Path) -> None:
-    """Verifica se o diretório existe"""
+    """Checks if directory exists"""
     p.parent.mkdir(parents=True, exist_ok=True)
 
 def now_epoch() -> float:
-    """Agora em unix timestamp"""
+    """Now in unix timestamp"""
     return time.time()
 
 def to_epoch(ts: datetime) -> float:
-    """Conversão para em unix timestamp"""
+    """Conversion to unix timestamp"""
     return ts.replace(tzinfo=timezone.utc).timestamp()
 
-#Gera CSV de flows via argus/ra (se disponíveis).
+# Generates CSV of flows via argus/ra (if available).
 def extract_with_argus(pcap: Path, out_csv: Path) -> Optional[Path]:
-    """Extração de features com o Argus"""
+    """Feature extraction with Argus"""
     argus = which_or_none("argus")
     ra = which_or_none("ra")
     if not (argus and ra):
@@ -66,7 +66,7 @@ def extract_with_argus(pcap: Path, out_csv: Path) -> Optional[Path]:
     with tempfile.TemporaryDirectory() as td:
         argus_bin = [argus, "-r", str(pcap), "-w", os.path.join(td, "argus.out")]
         run_cmd(argus_bin)
-        #-c , separador CSV; -s seleciona campos
+        # -c , CSV separator; -s selects fields
         sel = ",".join(ARGUS_FIELDS)
         ra_cmd = [
             ra,
@@ -78,27 +78,27 @@ def extract_with_argus(pcap: Path, out_csv: Path) -> Optional[Path]:
             sel,
         ]
         cp = run_cmd(ra_cmd)
-        #Argus não imprime header por default
+        # Argus does not print header by default
         header = ",".join(ARGUS_FIELDS) + "\n"
         with open(out_csv, "w", newline="", encoding="utf-8") as f:
             f.write(header)
             f.write(cp.stdout)
     return out_csv
 
-#Gera CSV de flows via cicflowmeter (Python port)
+# Generate CSV of flows via cicflowmeter (Python port)
 def extract_with_cicflowmeter(pcap: Path, out_csv: Path) -> Optional[Path]:
-    """Extração de features com o CICFlowMeter"""
+    """Feature extraction with CICFlowMeter"""
     cfm = which_or_none("cicflowmeter")
     if not cfm:
         return None
     ensure_dir(out_csv)
-    #CLI típico: cicflowmeter -f input.pcap -c output.csv
+    # Typical CLI: cicflowmeter -f input.pcap -c output.csv
     run_cmd([cfm, "-f", str(pcap), "-c", str(out_csv)])
     return out_csv
 
-#Extrai per-packet em flows no Python com tshark.
+# Extract per-packet flows in Python with tshark.
 def extract_with_tshark(pcap: Path, out_csv: Path) -> Optional[Path]:
-    """Extração de features com o TShark"""
+    """Feature extraction with TShark"""
     tshark = which_or_none("tshark")
     if not tshark:
         return None
@@ -121,10 +121,10 @@ def extract_with_tshark(pcap: Path, out_csv: Path) -> Optional[Path]:
     pkt_csv = out_csv.with_suffix(".packets.csv")
     with open(pkt_csv, "w", encoding="utf-8") as f:
         f.write(cp.stdout)
-    #Agregar em flows (direcionais)
+    # Aggregate in flows (directional)
     df = pd.read_csv(pkt_csv)
 
-    #Normaliza colunas faltantes (quando não TCP/UDP)
+    # Normalize missing columns (when not TCP/UDP)
     for c in [
         "tcp.srcport",
         "tcp.dstport",
@@ -136,7 +136,7 @@ def extract_with_tshark(pcap: Path, out_csv: Path) -> Optional[Path]:
         if c not in df.columns:
             df[c] = np.nan
 
-    #Usar fillna entre colunas em vez de operações com DataFrame
+    # Use fillna between columns instead of DataFrame operations
     df["srcport"] = df["tcp.srcport"].fillna(df["udp.srcport"]).fillna(0).astype(int)
     df["dstport"] = df["tcp.dstport"].fillna(df["udp.dstport"]).fillna(0).astype(int)
     df["proto"] = pd.to_numeric(df.get("ip.proto", 0), errors="coerce").fillna(0).astype(int)
@@ -172,7 +172,7 @@ def extract_with_tshark(pcap: Path, out_csv: Path) -> Optional[Path]:
         )
 
     flows = df.groupby(key_cols, dropna=False).apply(aggregate).reset_index()
-    #Gera flow_id
+    # Generate flow_id
     flows["flow_id"] = (
         flows["ip.src"]
         + ":"
@@ -191,7 +191,7 @@ def extract_with_tshark(pcap: Path, out_csv: Path) -> Optional[Path]:
 
 
 def flow_id(self) -> str:
-    """Retorna o flow id"""
+    """Return flow id"""
     return f"{self.src}:{self.sport}→{self.dst}:{self.dport}/{self.proto}@{self.stime:.3f}"
 
 SCAPY_AVAILABLE = True
@@ -201,7 +201,7 @@ except Exception:
     SCAPY_AVAILABLE = False
 
 def extract_with_scapy(pcap: Path, out_csv: Path) -> Optional[Path]:
-    """Fallback Python: agrega por 5-tupla direcional com features essenciais."""
+    """Python Fallback: 5-Tuple Aggregation with Essential Features."""
     if not SCAPY_AVAILABLE:
         return None
     features: Dict[Tuple[str, int, str, int, int], List[Tuple[float, int, int, Optional[int], Optional[int]]]] = {}
@@ -279,7 +279,7 @@ def extract_with_scapy(pcap: Path, out_csv: Path) -> Optional[Path]:
         )
     df = pd.DataFrame(rows)
     if df.empty:
-        print("[WARN] Sem fluxos após extração (Scapy).", file=sys.stderr)
+        print("[WARN] No flows after extraction (Scapy).", file=sys.stderr)
         df = pd.DataFrame(
             columns=[
                 "ip.src",
@@ -325,33 +325,33 @@ def extract_with_scapy(pcap: Path, out_csv: Path) -> Optional[Path]:
 
 def extract_features(pcap: Path, out_dir: Path) -> List[Path]:
     """
-    Tenta extrair o máximo de features combinando ferramentas.
-    Retorna lista de CSVs gerados (cada um com um subconjunto de colunas).
+    Attempts to extract as many features as possible by combining tools.
+    Returns a list of generated CSVs (each with a subset of columns).
     """
     out_dir.mkdir(parents=True, exist_ok=True)
     generated: List[Path] = []
 
-    #1) Argus (flows padrão da ferramenta)
+    #1) Argus (standard tool flows)
     argus_csv = out_dir / (pcap.stem + ".argus.csv")
     if extract_with_argus(pcap, argus_csv):
         generated.append(argus_csv)
 
-    #2) CICFlowMeter (83+ features orientadas a IDS)
+    #2) CICFlowMeter (83+ IDS-oriented features)
     cic_csv = out_dir / (pcap.stem + ".cic.csv")
     if extract_with_cicflowmeter(pcap, cic_csv):
         generated.append(cic_csv)
 
-    #3) TShark per-packet → agregação (features básicas + flags)
+    #3) TShark per-packet → aggregation (basic features + flags)
     tshark_csv = out_dir / (pcap.stem + ".tsharkflows.csv")
     if extract_with_tshark(pcap, tshark_csv):
         generated.append(tshark_csv)
 
-    #4) Fallback Scapy (sempre tenta por último para garantir algo)
+    #4) Fallback Scapy (always tries last to secure something)
     scapy_csv = out_dir / (pcap.stem + ".scapyflows.csv")
     if extract_with_scapy(pcap, scapy_csv):
         generated.append(scapy_csv)
 
-    #5) Algo deu errado e nada foi gerado
+    #5) Something went wrong and nothing was generated
     if not generated:
-        raise RuntimeError("Falha: nenhuma ferramenta conseguiu gerar features.")
+        raise RuntimeError("Failure: No tool was able to generate features.")
     return generated

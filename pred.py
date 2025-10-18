@@ -1,3 +1,3 @@
 '''
-Placeholder para módulo de predição
+Placeholder for prediction module
 '''
