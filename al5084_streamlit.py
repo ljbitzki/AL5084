@@ -17,7 +17,7 @@ def main():
     st.set_page_config(page_title="AL5084 - Disciplina de Desenvolvimento de Software PPGES Unipampa", page_icon="")
     st.title("AL5084 - Disciplina de Desenvolvimento de Software PPGES Unipampa")
     
-    command = st.sidebar.selectbox("Commands", ["Capture", "Features/Flows", "View Features/Flows", "Dataset Generation"])
+    command = st.sidebar.selectbox("Aavailable Commands", ["Capture", "Features/Flows", "View Features/Flows", "Dataset Generation"])
     
     if command == "Capture":
         st.header("Capture")

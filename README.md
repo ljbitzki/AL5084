@@ -30,9 +30,19 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install --upgrade pip
 pip install -r requirements.txt
+git clone https://github.com/ahlashkari/NTLFlowLyzer.git
+cd NTLFlowLyzer
+pip install -r requirements.txt
+python3 setup.py install
 ```
 
 ---
+
+##### Run Celery in another terminal:
+
+```
+celery -A tasks worker --loglevel=info
+```
 
 #### Performing a traffic capture
 ```
@@ -69,6 +79,7 @@ python al5084.py build-ds -c features/capture.scapyflows.csv -o datasets/ -l lab
 - `-l` ou `--labels`: labels.csv file (flow_id,label or 5-tuple+label).
 - `--default-label`: Default label (ex: OK/SUSPECT)
 
+
 ---
 
 #### Using Streamlit:
@@ -79,20 +90,29 @@ python al5084.py build-ds -c features/capture.scapyflows.csv -o datasets/ -l lab
 streamlit run al5084_streamlit.py
 ```
 
-##### Run Celery in another terminal:
-
-```
-celery -A tasks worker --loglevel=info
-```
-
 ##### Open the running Streamlit instance in the browser:
 
 `http://localhost:8501`
 
-#### Performing automated extraction of flows/features from a capture
-```
-python al5084.py features -p captures/capture_file.pcap -o features/
-```
+##### Command selector
+
+![](https://github.com/ljbitzki/AL5084/assets/sl_1.png)
+
+##### Performing a traffic capture
+
+![](https://github.com/ljbitzki/AL5084/assets/sl_2.png)
+
+##### Performing automated extraction of flows/features from a capture
+
+![](https://github.com/ljbitzki/AL5084/assets/sl_3.png)
+
+##### Flows/features viewer
+
+![](https://github.com/ljbitzki/AL5084/assets/sl_4.png)
+
+##### Executing dataset generation from a file of extracted features/flows
+
+![](https://github.com/ljbitzki/AL5084/assets/sl_5.png)
 
 #### (Theoretical) structure of this repository
 
