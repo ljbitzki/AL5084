@@ -5,6 +5,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import json
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
@@ -322,6 +323,30 @@ def extract_with_scapy(pcap: Path, out_csv: Path) -> Optional[Path]:
     df.to_csv(out_csv, index=False)
     return out_csv
 
+# Generate CSV of flows via NTLFlowLyzer
+def extract_with_ntlflowlyzer(pcap: Path, out_csv: Path) -> Optional[Path]:
+    """Feature extraction with NTLFlowLyzer"""
+    ntlfl = which_or_none("ntlflowlyzer")
+    if not ntlfl:
+        return None
+    ensure_dir(out_csv)
+    # Typical CLI: ntlflowlyzer -c ./NTLFlowLyzer/config.json
+    base_file = Path("./base.json")
+    config_file = Path("./NTLFlowLyzer/tlflconfig.json")
+    try:
+        with open(base_file, 'r', encoding='utf-8') as f:
+            config_data = json.load(f)
+        config_data["pcap_file_address"] = "./" + str(pcap)
+        config_data["output_file_address"] = "./" + str(out_csv)
+
+        with open(config_file, 'w', encoding='utf-8') as f:
+            json.dump(config_data, f, indent=4, ensure_ascii=False)
+          
+    finally:
+        run_cmd([ntlfl, "-c", str(config_file)])
+        return out_csv
+        if config_file.exists():
+            config_file.unlink()
 
 def extract_features(pcap: Path, out_dir: Path) -> List[Path]:
     """
@@ -346,12 +371,17 @@ def extract_features(pcap: Path, out_dir: Path) -> List[Path]:
     if extract_with_tshark(pcap, tshark_csv):
         generated.append(tshark_csv)
 
-    #4) Fallback Scapy (always tries last to secure something)
+    #4) NTLFlowLyzer (standard tool flows)
+    ntlfl_csv = out_dir / (pcap.stem + ".ntlflowlyzer.csv")
+    if extract_with_ntlflowlyzer(pcap, ntlfl_csv):
+        generated.append(ntlfl_csv)
+
+    #5) Fallback Scapy (always tries last to secure something)
     scapy_csv = out_dir / (pcap.stem + ".scapyflows.csv")
     if extract_with_scapy(pcap, scapy_csv):
         generated.append(scapy_csv)
 
-    #5) Something went wrong and nothing was generated
+    #6) Something went wrong and nothing was generated
     if not generated:
         raise RuntimeError("Failure: No tool was able to generate features.")
     return generated
