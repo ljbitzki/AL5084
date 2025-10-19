@@ -94,25 +94,27 @@ streamlit run al5084_streamlit.py
 
 `http://localhost:8501`
 
-##### Command selector
+#### - Command selector
 
-![](https://github.com/ljbitzki/AL5084/assets/sl_1.png)
+![https://github.com/ljbitzki/AL5084/assets/sl_1.png](https://github.com/ljbitzki/AL5084/blob/main/assets/1.png)
 
-##### Performing a traffic capture
+#### - Performing a traffic capture
 
-![](https://github.com/ljbitzki/AL5084/assets/sl_2.png)
+![https://github.com/ljbitzki/AL5084/assets/sl_1.png](https://github.com/ljbitzki/AL5084/blob/main/assets/2.png)
 
-##### Performing automated extraction of flows/features from a capture
+#### - Performing automated extraction of flows/features from a capture
 
-![](https://github.com/ljbitzki/AL5084/assets/sl_3.png)
+![https://github.com/ljbitzki/AL5084/assets/sl_1.png](https://github.com/ljbitzki/AL5084/blob/main/assets/3.png)
 
-##### Flows/features viewer
+#### - Flows/features viewer
 
-![](https://github.com/ljbitzki/AL5084/assets/sl_4.png)
+![https://github.com/ljbitzki/AL5084/assets/sl_1.png](https://github.com/ljbitzki/AL5084/blob/main/assets/4.png)
 
-##### Executing dataset generation from a file of extracted features/flows
+#### - Executing dataset generation from a file of extracted features/flows
 
-![](https://github.com/ljbitzki/AL5084/assets/sl_5.png)
+![https://github.com/ljbitzki/AL5084/assets/sl_1.png](https://github.com/ljbitzki/AL5084/blob/main/assets/5.png)
+
+---
 
 #### (Theoretical) structure of this repository
 
