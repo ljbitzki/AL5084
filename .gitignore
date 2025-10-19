@@ -6,3 +6,5 @@ features/*.csv
 datasets/*.csv
 models/*.csv
 models/*.joblib
+NTLFlowLyzer/
+NTLFlowLyzer/.*
