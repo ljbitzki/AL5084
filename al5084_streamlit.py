@@ -17,7 +17,7 @@ def main():
     st.set_page_config(page_title="AL5084 - Disciplina de Desenvolvimento de Software PPGES Unipampa", page_icon="")
     st.title("AL5084 - Disciplina de Desenvolvimento de Software PPGES Unipampa")
     
-    command = st.sidebar.selectbox("Commands", ["Capture", "Features/Flows", "View Features/Flows", "Dataset Generation"])
+    command = st.sidebar.selectbox("Aavailable Commands", ["Capture", "Features/Flows", "View Features/Flows", "Dataset Generation"])
     
     if command == "Capture":
         st.header("Capture")
@@ -141,7 +141,7 @@ def main():
 
         if st.button("Dataset Generation", type="primary"):
             if not ds_outdir or not labels or not default_label:
-                st.error("It is mandatory to enter valid values ​​in all fields.!")
+                st.error("It is mandatory to enter valid values in all fields.!")
             else:
                 with st.spinner(f'Running dataset generation based on the file {selected_file} in the directory {ds_dir}'):
                     task = run_datasets_task.delay(selected_file, ds_outdir, labels, default_label)
