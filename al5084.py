@@ -4,9 +4,6 @@ from pathlib import Path
 from tasks import run_capture_task, run_features_task, run_datasets_task
 from celery.result import AsyncResult
 from celery import Celery
-import cap as mCAP
-import feat as mFEAT
-import ds as mDS
 
 def main():
     """Main function"""
