@@ -48,7 +48,6 @@ celery -A tasks worker --loglevel=info
 ```
 python al5084.py capture -i enp0s3 -d 10 -o captures/
 ```
-
 ##### Parameters:
 - `capture`: CLI command selector to trigger capture layer.
 - `-i` ou `--iface`: Network interface for capture (ex: eth0, enp0s3, etc).
@@ -60,7 +59,6 @@ python al5084.py capture -i enp0s3 -d 10 -o captures/
 ```
 python al5084.py features -p captures/capture_file.pcap -o features/
 ```
-
 ##### Parameters:
 - `features`: CLI command selector to trigger the flows/features extraction layer.
 - `-p` ou `--pcap`: .pcap file to be analyzed.
@@ -78,7 +76,6 @@ python al5084.py build-ds -c features/capture.scapyflows.csv -o datasets/ -l lab
 - `-o` ou `--outdir`:Dataset output directory (default: datasets/).
 - `-l` ou `--labels`: labels.csv file (flow_id,label or 5-tuple+label).
 - `--default-label`: Default label (ex: OK/SUSPECT)
-
 
 ---
 

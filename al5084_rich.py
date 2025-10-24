@@ -82,7 +82,6 @@ def handle_features():
 def main():
     while True:
         choice = show_menu()
-        
         if choice == "capture":
             handle_capture()
         elif choice == "features":
@@ -90,7 +89,6 @@ def main():
         elif choice == "exit":
             console.print("[cyan]Finishing...[/cyan]")
             break
-        
         if not Confirm.ask("\nRun another command?"):
             console.print("[cyan]Finishing...[/cyan]")
             break

@@ -29,7 +29,6 @@ def main():
     ap_ds.add_argument("-o", "--outdir", required=True, help="Output CSV dataset")
     ap_ds.add_argument("-l", "--labels", default=None, help="Labels CSV (flow_id,label ou 5-tupla+label)")
     ap_ds.add_argument("--default-label", type=str, default=None, help="Default label (ex: OK/SUSPECT)")
-
     args = ap.parse_args()
 
     if args.cmd == "capture":

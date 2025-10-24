@@ -3,7 +3,7 @@
     "output_file_address": "ntlflowlyzer.csv",
     "label": "Benign",
     "number_of_threads": 4,
-    "feature_extractor_min_flows": 2500,
+    "feature_extractor_min_flows": 2000,
     "writer_min_rows": 1000,
     "read_packets_count_value_log_info": 1000000,
     "check_flows_ending_min_flows": 20000,

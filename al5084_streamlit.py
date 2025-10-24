@@ -153,7 +153,6 @@ def main():
         if "task_id" in st.session_state:
             task_id = st.session_state["task_id"]
             task_result = AsyncResult(task_id, app=celery_app)
-
             st.write(f"#### Task status ID: `{task_id}`")
             st.info(task_result.status)
 

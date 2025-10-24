@@ -190,7 +190,6 @@ def extract_with_tshark(pcap: Path, out_csv: Path) -> Optional[Path]:
     flows.to_csv(out_csv, index=False)
     return out_csv
 
-
 def flow_id(self) -> str:
     """Return flow id"""
     return f"{self.src}:{self.sport}→{self.dst}:{self.dport}/{self.proto}@{self.stime:.3f}"

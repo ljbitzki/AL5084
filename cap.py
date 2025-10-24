@@ -67,6 +67,7 @@ def capture_pcap(output: str, interface: str, duration: int, snaplen: int = 96) 
         ]
         run_cmd(cmd)
         return out
+        
     if tcpdump:
         cmd = [
             tcpdump,
