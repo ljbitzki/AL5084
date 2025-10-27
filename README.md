@@ -23,6 +23,7 @@ sudo chmod +x /usr/bin/dumpcap
 The commands `sudo dpkg-reconfigure wireshark-common` and `sudo chmod +x /usr/bin/dumpcap` are required to enable packet capture using the current user, without having to run as `root`.
 
 #### Clone the repository, start a virtual environment and install the necessary Python packages with the manager `pip`
+
 ```
 git clone https://github.com/ljbitzki/AL5084.git
 cd AL5084/ || exit 1
@@ -44,25 +45,35 @@ python3 setup.py install
 celery -A tasks worker --loglevel=info
 ```
 
+#### Start a continuous traffic capture e features extraction (until ctrl+c)
+
+```
+python al5084.py pipeline -i enp0s3 -d 10 -o captures/
+```
+
 #### Performing a traffic capture
+
 ```
 python al5084.py capture -i enp0s3 -d 10 -o captures/
 ```
+
 ##### Parameters:
-- `capture`: CLI command selector to trigger capture layer.
-- `-i` ou `--iface`: Network interface for capture (ex: eth0, enp0s3, etc).
-- `-d` ou `--duration`: Time at which capture will automatically end (in seconds).
-- `-o` ou `--outdir`: Output directory/desired_filename.pcap.
-- `-s` ou `--snaplen` (optional): Value in bytes of the snapshot. See more at [SnapLen](https://wiki.wireshark.org/SnapLen).
+- `capture/pipeline`: CLI command selector to trigger capture layer.
+- `-i` or `--iface`: Network interface for capture (ex: eth0, enp0s3, etc).
+- `-d` or `--duration`: Time at which capture will automatically end (in seconds).
+- `-o` or `--outdir`: Output directory/desired_filename.pcap.
+- `-s` or `--snaplen` (optional): Value in bytes of the snapshot. See more at [SnapLen](https://wiki.wireshark.org/SnapLen).
 
 #### Performing automated extraction of flows/features from a capture
+
 ```
 python al5084.py features -p captures/capture_file.pcap -o features/
 ```
+
 ##### Parameters:
 - `features`: CLI command selector to trigger the flows/features extraction layer.
-- `-p` ou `--pcap`: .pcap file to be analyzed.
-- `-o` ou `--outdir`: Extraction output directory.
+- `-p` or `--pcap`: .pcap file to be analyzed.
+- `-o` or `--outdir`: Extraction output directory.
 
 #### Executing dataset generation from a file of extracted features/flows
 
@@ -72,9 +83,9 @@ python al5084.py build-ds -c features/capture.scapyflows.csv -o datasets/ -l lab
 
 ##### Parameters:
 - `build-ds`: CLI command selector to trigger the dataset generation layer.
-- `-c` ou `--csvs`: Feature CSV file(s)
-- `-o` ou `--outdir`:Dataset output directory (default: datasets/).
-- `-l` ou `--labels`: labels.csv file (flow_id,label or 5-tuple+label).
+- `-c` or `--csvs`: Feature CSV file(s)
+- `-o` or `--outdir`:Dataset output directory (default: datasets/).
+- `-l` or `--labels`: labels.csv file (flow_id,label or 5-tuple+label).
 - `--default-label`: Default label (ex: OK/SUSPECT)
 
 ---
