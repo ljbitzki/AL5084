@@ -1,5 +1,6 @@
 """CLI"""
 import argparse
+import cap as mCAP
 from pathlib import Path
 from tasks import run_capture_task, run_features_task, run_datasets_task
 from celery.result import AsyncResult
@@ -13,6 +14,12 @@ def main():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     sub = ap.add_subparsers(dest="cmd", required=True)
+
+    ap_pl = sub.add_parser("pipeline", help="Continuously capture PCAP from an interface and extrac features")
+    ap_pl.add_argument("-i", "--iface", required=True, help="Interface (ex: enp0s3, eth0, etc)")
+    ap_pl.add_argument("-d", "--duration", type=int, default=60, help="Duration (s)")
+    ap_pl.add_argument("-o", "--outdir", required=True, help="Output directory for .pcap files")
+    ap_pl.add_argument("-s", "--snaplen", type=int, default=96, help="Snaplen (bytes)")
 
     ap_cap = sub.add_parser("capture", help="Capture PCAP from an interface")
     ap_cap.add_argument("-i", "--iface", required=True, help="Interface (ex: enp0s3, eth0, etc)")
@@ -30,6 +37,12 @@ def main():
     ap_ds.add_argument("-l", "--labels", default=None, help="Labels CSV (flow_id,label ou 5-tupla+label)")
     ap_ds.add_argument("--default-label", type=str, default=None, help="Default label (ex: OK/SUSPECT)")
     args = ap.parse_args()
+
+    if args.cmd == "pipeline":
+        while True:
+            capture = mCAP.capture_pcap(Path(args.outdir), args.iface, args.duration, snaplen=args.snaplen)
+            task = run_features_task.delay(capture, 'features/')
+            print(f"Task features, ID: ", task)
 
     if args.cmd == "capture":
         task = run_capture_task.delay(args.outdir, args.iface, args.duration, snaplen=args.snaplen)
