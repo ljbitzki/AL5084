@@ -93,23 +93,23 @@ streamlit run al5084_streamlit.py
 
 #### - Command selector
 
-![https://github.com/ljbitzki/AL5084/assets/1.png](https://github.com/ljbitzki/AL5084/blob/main/assets1.png)
+![https://raw.githubusercontent.com/ljbitzki/AL5084/main/assets/1.png](https://raw.githubusercontent.com/ljbitzki/AL5084/main/assets/1.png)
 
 #### - Performing a traffic capture
 
-![https://github.com/ljbitzki/AL5084/assets/2.png](https://github.com/ljbitzki/AL5084/blob/main/assets/2.png)
+![https://raw.githubusercontent.com/ljbitzki/AL5084/main/assets/2.png](https://raw.githubusercontent.com/ljbitzki/AL5084/main/assets/2.png)
 
 #### - Performing automated extraction of flows/features from a capture
 
-![https://github.com/ljbitzki/AL5084/assets/3.png](https://github.com/ljbitzki/AL5084/blob/main/assets/3.png)
+![https://raw.githubusercontent.com/ljbitzki/AL5084/main/assets/3.png](https://raw.githubusercontent.com/ljbitzki/AL5084/main/assets/3.png)
 
 #### - Flows/features viewer
 
-![https://github.com/ljbitzki/AL5084/assets/4.png](https://github.com/ljbitzki/AL5084/blob/main/assets/4.png)
+![https://raw.githubusercontent.com/ljbitzki/AL5084/main/assets/4.png](https://raw.githubusercontent.com/ljbitzki/AL5084/main/assets/4.png)
 
 #### - Executing dataset generation from a file of extracted features/flows
 
-![https://github.com/ljbitzki/AL5084/assets/5.png](https://github.com/ljbitzki/AL5084/blob/main/assets/5.png)
+![https://raw.githubusercontent.com/ljbitzki/AL5084/main/assets/5.png](https://raw.githubusercontent.com/ljbitzki/AL5084/main/assets/5.png)
 
 ---
 
