@@ -86,7 +86,7 @@ def extract_with_argus(pcap: Path, out_csv: Path) -> Optional[Path]:
             f.write(cp.stdout)
     return out_csv
 
-# Generate CSV of flows via cicflowmeter (Python port)
+# Generate CSV of flows via cicflowmeter (Python port) - Currently not working
 def extract_with_cicflowmeter(pcap: Path, out_csv: Path) -> Optional[Path]:
     """Feature extraction with CICFlowMeter"""
     cfm = which_or_none("cicflowmeter")

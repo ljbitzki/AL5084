@@ -1,3 +1,3 @@
 '''
-Placeholder for prediction module
+Placeholder for prediction module - work in progress
 '''

@@ -83,6 +83,7 @@ def capture_pcap(output: str, interface: str, duration: int, snaplen: int = 96) 
             ]
         run_cmd(cmd)
         return out
+        
     if not SCAPY_AVAILABLE:
         raise RuntimeError("No capturers found (tshark/tcpdump/scapy). Please install at least one.")
 
