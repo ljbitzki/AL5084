@@ -23,7 +23,7 @@ def main():
         st.header("Capture")
         
         c_outdir = st.text_input(".pcap file output directory", value="captures/" ,placeholder="captures/", key="c_outdir")
-        duration = st.number_input("Ttime at which the capture will automatically end (in seconds)", value=5, min_value=1, key="duration")
+        duration = st.number_input("Period which the capture will automatically end (in seconds)", value=5, min_value=1, key="duration")
         iface = st.text_input("Network interface for capture/collection (ex: eth0, enp0s3, etc)", value="enp0s3", placeholder="enp0s3", key="iface")        
         snaplen = st.number_input("SnapLen (in bytes)", value=96, min_value=1, key="snaplen")
         if st.button("Run capture", type="primary"):

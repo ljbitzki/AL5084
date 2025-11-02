@@ -158,7 +158,7 @@ def build_dataset(csv_paths: List[Path], out_csv: Path, labels: Optional[Path] =
                 raise RuntimeError("Invalid label format. Expected flow_id,label ou 5-tupla+label.")
     if default_label is not None:
         base["label"] = base["label"].fillna(default_label)
-    # Cleanup: Remove obvious auxiliary and duplicate columns
+    # Cleanup: Remove auxiliary and duplicate columns
     drop_cols = [c for c in base.columns if c.startswith("__")] + [c for c in base.columns if c.endswith("_x")]
     base = base.drop(columns=drop_cols, errors="ignore")
     # Sort columns: keys, times, features, label

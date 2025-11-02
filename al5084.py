@@ -42,7 +42,7 @@ def main():
         while True:
             capture = mCAP.capture_pcap(Path(args.outdir), args.iface, args.duration, snaplen=args.snaplen)
             task = run_features_task.delay(capture, 'features/')
-            print(f"Task features, ID: ", task)
+            print(f"Task pipeline, ID: ", task)
 
     if args.cmd == "capture":
         task = run_capture_task.delay(args.outdir, args.iface, args.duration, snaplen=args.snaplen)

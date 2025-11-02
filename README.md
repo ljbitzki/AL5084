@@ -48,7 +48,7 @@ celery -A tasks worker --loglevel=info
 #### Start a continuous traffic capture e features extraction (until ctrl+c)
 
 ```
-python al5084.py pipeline -i enp0s3 -d 10 -o captures/
+python al5084.py pipeline -i enp0s3 -d 60 -o captures/
 ```
 
 #### Performing a traffic capture
