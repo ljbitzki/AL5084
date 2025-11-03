@@ -1,5 +1,5 @@
 # AL5084
-Disciplina de Desenvolvimento de Software PPGES Unipampa
+Software Development - PPGES Unipampa
 
 #### Development environment (for reference only):
 - Host Operating System: Kubuntu Desktop 24.04 LTS
