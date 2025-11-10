@@ -52,7 +52,7 @@ def main():
         task = run_features_task.delay(args.pcap, args.outdir)
         print(f"Task features, ID: ", task)
 
-    elif args.cmd == "build-ds":
+    if args.cmd == "build-ds":
         task = run_datasets_task.delay(args.csvs, args.outdir, args.labels, args.default_label)
         print(f"Task dataset, ID: ", task)
 
