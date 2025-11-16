@@ -1,5 +1,5 @@
 # AL5084
-Software Development - PPGES Unipampa
+Disciplina de Desenvolvimento de Software PPGES Unipampa
 
 #### Development environment (for reference only):
 - Host Operating System: Kubuntu Desktop 24.04 LTS
@@ -48,11 +48,7 @@ celery -A tasks worker --loglevel=info
 #### Start a continuous traffic capture e features extraction (until ctrl+c)
 
 ```
-<<<<<<< HEAD
 python al5084.py continuous -i enp0s3 -d 10 -o captures/
-=======
-python al5084.py pipeline -i enp0s3 -d 60 -o captures/
->>>>>>> 3a998a6c7887083e911f4400666520af0e922a32
 ```
 
 #### Performing a single traffic capture
