@@ -56,6 +56,7 @@ def main():
 
     if args.cmd == "continuous":
         while True:
+<<<<<<< HEAD
             workflow = chain(
                 run_capture_task.s(args.outdir, args.iface, args.duration, snaplen=args.snaplen),
                 run_features_task.s(args.pcap, 'features/'),
@@ -64,6 +65,11 @@ def main():
             )
             result_async = workflow.delay()
             print(f"Task Continuous, ID: ", workflow)
+=======
+            capture = mCAP.capture_pcap(Path(args.outdir), args.iface, args.duration, snaplen=args.snaplen)
+            task = run_features_task.delay(capture, 'features/')
+            print(f"Task pipeline, ID: ", task)
+>>>>>>> 3a998a6c7887083e911f4400666520af0e922a32
 
     if args.cmd == "capture":
         task = run_capture_task.delay(args.outdir, args.iface, args.duration, snaplen=args.snaplen)
@@ -74,7 +80,11 @@ def main():
         print(f"Task features, ID: ", task)
 
     if args.cmd == "build-ds":
+<<<<<<< HEAD
         task = run_datasets_task.delay(args.csvs)
+=======
+        task = run_datasets_task.delay(args.csvs, args.outdir, args.labels, args.default_label)
+>>>>>>> 3a998a6c7887083e911f4400666520af0e922a32
         print(f"Task dataset, ID: ", task)
 
     if args.cmd == "machine-learning":

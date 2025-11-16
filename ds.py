@@ -209,6 +209,7 @@ def load_features(csv_paths: Union[PathLike, Iterable[PathLike]]) -> pd.DataFram
         dfs.append(df_norm)
 
     if not dfs:
+<<<<<<< HEAD
         raise ValueError("No feature CSVs were provided.")
 
     features = pd.concat(dfs, ignore_index=True)
@@ -242,3 +243,49 @@ def build_dataset_unsupervised(
         features.to_csv(out_path, index=False)
         print(f"[ds] Unsupervised dataset saved to {out_path}")
     return out_path
+=======
+        raise RuntimeError("No CSV to consolidate.")
+    # Incremental merge by flow_id when possible; otherwise, by 5-tuple + time
+    base = dfs[0]
+    for nxt in dfs[1:]:
+        if "flow_id" in base.columns and "flow_id" in nxt.columns:
+            base = base.merge(nxt.drop_duplicates("flow_id"), on="flow_id", how="left", suffixes=("", "_x"))
+        else:
+            tuple_cols = ["ip.src", "srcport", "ip.dst", "dstport", "proto"]
+            ts_left = "stime" if "stime" in base.columns else ("Timestamp" if "Timestamp" in base.columns else None)
+            ts_right = "stime" if "stime" in nxt.columns else ("Timestamp" if "Timestamp" in nxt.columns else None)
+            if ts_left and ts_right and set(tuple_cols).issubset(base.columns) and set(tuple_cols).issubset(nxt.columns):
+                base = _nearest_join(base, nxt, tuple_cols, ts_left, ts_right, max_delta=1.5)
+            else:
+                base = base.merge(nxt, how="left")
+    # Inject labels
+    if labels and Path(labels).exists():
+        lbl = pd.read_csv(labels)
+        lbl = _standardize_columns(lbl)
+        if "flow_id" in lbl.columns and "flow_id" in base.columns:
+            base = base.merge(lbl[["flow_id", "label"]], on="flow_id", how="left")
+        else:
+            tuple_cols = ["ip.src", "srcport", "ip.dst", "dstport", "proto"]
+            if set(tuple_cols + ["label"]).issubset(lbl.columns) and set(tuple_cols).issubset(base.columns):
+                base = base.merge(lbl[tuple_cols + ["label"]], on=tuple_cols, how="left")
+            else:
+                raise RuntimeError("Invalid label format. Expected flow_id,label ou 5-tupla+label.")
+    if default_label is not None:
+        base["label"] = base["label"].fillna(default_label)
+    # Cleanup: Remove auxiliary and duplicate columns
+    drop_cols = [c for c in base.columns if c.startswith("__")] + [c for c in base.columns if c.endswith("_x")]
+    base = base.drop(columns=drop_cols, errors="ignore")
+    # Sort columns: keys, times, features, label
+    key_cols = [c for c in ["flow_id", "ip.src", "srcport", "ip.dst", "dstport", "proto"] if c in base.columns]
+    time_cols = [c for c in ["stime", "ltime", "dur"] if c in base.columns]
+    label_cols = ["label"] if "label" in base.columns else []
+    feat_cols = [c for c in base.columns if c not in key_cols + time_cols + label_cols]
+    ordered = key_cols + time_cols + feat_cols + label_cols
+    base = base.reindex(columns=ordered)
+    ensure_dir(out_csv)
+    now = datetime.now()
+    filename = now.strftime("%Y%m%d-%I%M%S") + '-ds.csv'
+    out = str(out_csv) + '/' + str(filename)
+    base.to_csv(out, index=False)
+    return out
+>>>>>>> 3a998a6c7887083e911f4400666520af0e922a32
