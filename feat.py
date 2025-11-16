@@ -1,4 +1,4 @@
-"""Extração de features para dataset"""
+"""Feature extraction for dataset"""
 import os
 import shutil
 import subprocess
@@ -89,7 +89,7 @@ def extract_with_argus(pcap: Path, out_csv: Path) -> Optional[Path]:
 # Generate CSV of flows via cicflowmeter (Python port)
 def extract_with_cicflowmeter(pcap: Path, out_csv: Path) -> Optional[Path]:
     """Feature extraction with CICFlowMeter"""
-    cfm = which_or_none("cicflowmeter")
+    cfm = which_or_none("cicflowmeter_XXX")
     if not cfm:
         return None
     ensure_dir(out_csv)
@@ -103,41 +103,48 @@ def extract_with_tshark(pcap: Path, out_csv: Path) -> Optional[Path]:
     tshark = which_or_none("tshark")
     if not tshark:
         return None
+
     ensure_dir(out_csv)
+
     cmd = [
         tshark,
-        "-r",
-        str(pcap),
-        "-T",
-        "fields",
-        "-E",
-        "header=y",
-        "-E",
-        "separator=,",
+        "-r", str(pcap),
+        "-T", "fields",
+        "-E", "header=y",
+        "-E", "separator=\t",  # use TAB
+        "-E", "quote=d",       # double-quotes
+        "-E", "occurrence=f",  # first occurrence
     ]
     for f in TSHARK_FIELDS:
         cmd += ["-e", f]
+
     cp = run_cmd(cmd)
-    #CSV per-packet
+
+    # CSV per-packet
     pkt_csv = out_csv.with_suffix(".packets.csv")
     with open(pkt_csv, "w", encoding="utf-8") as f:
         f.write(cp.stdout)
-    # Aggregate in flows (directional)
-    df = pd.read_csv(pkt_csv)
 
-    # Normalize missing columns (when not TCP/UDP)
+    # Aggregate in flows (directional)
+    df = pd.read_csv(
+        pkt_csv,
+        sep="\t",
+        engine="python",
+        on_bad_lines="warn",  # or "skip"/"error" according to your tolerance
+    )
+
+    # Normalize missing columns (qif not TCP/UDP)
     for c in [
         "tcp.srcport",
         "tcp.dstport",
         "udp.srcport",
         "udp.dstport",
         "tcp.window_size_value",
-        "tcp.flags"
-        ]:
+        "tcp.flags",
+    ]:
         if c not in df.columns:
             df[c] = np.nan
 
-    # Use fillna between columns instead of DataFrame operations
     df["srcport"] = df["tcp.srcport"].fillna(df["udp.srcport"]).fillna(0).astype(int)
     df["dstport"] = df["tcp.dstport"].fillna(df["udp.dstport"]).fillna(0).astype(int)
     df["proto"] = pd.to_numeric(df.get("ip.proto", 0), errors="coerce").fillna(0).astype(int)
@@ -145,6 +152,7 @@ def extract_with_tshark(pcap: Path, out_csv: Path) -> Optional[Path]:
     df["len"] = pd.to_numeric(df["frame.len"], errors="coerce").fillna(0).astype(int)
     df["tcp_window"] = pd.to_numeric(df["tcp.window_size_value"], errors="coerce")
     df["tcp_flags"] = df["tcp.flags"].fillna("").astype(str)
+
     key_cols = ["ip.src", "ip.dst", "srcport", "dstport", "proto"]
     df = df.dropna(subset=["ip.src", "ip.dst", "time"])
 
@@ -173,7 +181,7 @@ def extract_with_tshark(pcap: Path, out_csv: Path) -> Optional[Path]:
         )
 
     flows = df.groupby(key_cols, dropna=False).apply(aggregate).reset_index()
-    # Generate flow_id
+
     flows["flow_id"] = (
         flows["ip.src"]
         + ":"
@@ -187,6 +195,7 @@ def extract_with_tshark(pcap: Path, out_csv: Path) -> Optional[Path]:
         + "@"
         + flows["stime"].round(3).astype(str)
     )
+
     flows.to_csv(out_csv, index=False)
     return out_csv
 

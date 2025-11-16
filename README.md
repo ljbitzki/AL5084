@@ -48,10 +48,10 @@ celery -A tasks worker --loglevel=info
 #### Start a continuous traffic capture e features extraction (until ctrl+c)
 
 ```
-python al5084.py pipeline -i enp0s3 -d 10 -o captures/
+python al5084.py continuous -i enp0s3 -d 10 -o captures/
 ```
 
-#### Performing a traffic capture
+#### Performing a single traffic capture
 
 ```
 python al5084.py capture -i enp0s3 -d 10 -o captures/
@@ -78,7 +78,7 @@ python al5084.py features -p captures/capture_file.pcap -o features/
 #### Executing dataset generation from a file of extracted features/flows
 
 ```
-python al5084.py build-ds -c features/capture.scapyflows.csv -o datasets/ -l labels.csv --default-label OK
+python al5084.py build-ds -c features/capture.scapyflows.csv -o datasets/
 ```
 
 ##### Parameters:
@@ -87,7 +87,20 @@ python al5084.py build-ds -c features/capture.scapyflows.csv -o datasets/ -l lab
 - `-o` or `--outdir`:Dataset output directory (default: datasets/).
 - `-l` or `--labels`: labels.csv file (flow_id,label or 5-tuple+label).
 - `--default-label`: Default label (ex: OK/SUSPECT)
+---
 
+#### Executing IsolationForest ML from a dataset
+
+```
+python al5084.py machine-learning -c datasets/unsupervised.20251116_132459.csv
+```
+
+##### Parameters:
+- `machine-learning`: CLI command selector to trigger the IsolationForest ML in a dataset.
+- `-d` or `--dataset`: Dataset CSV File
+- `-m` or `--outdir`: Output model directory
+- `-s` or `--scoredir`: Output score directory
+- `-c` or `--contamination`: Default ~5% of expected flows are anomalous.
 ---
 
 #### Using Streamlit:
