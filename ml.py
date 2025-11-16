@@ -1,9 +1,5 @@
 '''
-<<<<<<< HEAD
 Start of Machine Learning models module
-=======
-Placeholder for Machine Learning models module - work in progress
->>>>>>> 3a998a6c7887083e911f4400666520af0e922a32
 '''
 from __future__ import annotations
 

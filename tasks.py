@@ -10,18 +10,17 @@ app.config_from_object("celeryconfig")
 
 @app.task
 def run_capture_task(output, interface, duration, snaplen):
-    """Task to perform capture"""
+    """Celery Task to perform capture"""
     result_cap = capture_pcap(Path(output), interface, duration, snaplen)
     return str(result_cap)
 
 @app.task
 def run_features_task(pcap, output):
-    """Task to perform feature extraction"""
+    """Celery Task to perform feature extraction"""
     result_feat = extract_features(Path(pcap), Path(output))
     return [str(p) for p in result_feat]
 
 @app.task
-<<<<<<< HEAD
 def run_datasets_task(feature_csvs, outdir="datasets/"):
     """Celery Task to perform dataset generation"""
     paths = [Path(p) for p in feature_csvs]
@@ -38,11 +37,3 @@ def run_ml_anomaly_task(dataset_csv, models_dir="models", scores_dir="datasets",
         scores_dir=scores_dir,
         contamination=contamination,
     )
-=======
-def run_datasets_task(csvs, output, labels, default_label):
-    """Task to perform dataset generation"""
-    csvs_list = []
-    csvs_list.append(csvs)
-    result_ds = build_dataset(csvs_list, Path(output), labels, default_label)
-    return str(result_ds)
->>>>>>> 3a998a6c7887083e911f4400666520af0e922a32
