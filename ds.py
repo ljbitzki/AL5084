@@ -1,17 +1,11 @@
-'''
-Consolidation in dataset
-'''
+"""Features consolidation in dataset"""
 from __future__ import annotations
-
 from pathlib import Path
 from datetime import datetime
 from typing import Iterable, Union
-
 import pandas as pd
 
-
 PathLike = Union[str, Path]
-
 
 # ---------------------------------------------------------------------
 # Basic utilities
