@@ -1,21 +1,14 @@
-'''
-Start of Machine Learning models module
-'''
+"""Start of Machine Learning models module"""
 from __future__ import annotations
-
 from pathlib import Path
 from datetime import datetime
 from typing import Union, Tuple, Dict, Any
-
 import pandas as pd
 import numpy as np
-
 from sklearn.ensemble import IsolationForest
 import joblib
 
-
 PathLike = Union[str, Path]
-
 
 # ---------------------------------------------------------------------
 # Basic utilities
