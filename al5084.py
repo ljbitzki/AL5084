@@ -1,5 +1,6 @@
 """CLI"""
 import argparse
+import cap as mCAP
 from pathlib import Path
 from celery.result import AsyncResult
 from celery import Celery
@@ -15,16 +16,16 @@ def main():
     """Main function. Depending on the argument received by argparse, the corresponding module will be executed."""
     ap = argparse.ArgumentParser(
         prog="al5084",
-        description="Pipeline for capture, feature extraction, dataset generation, and ML for network anomaly detection.",
+        description="Pipeline for capture, feature extraction, dataset generation, and ML for network traffic.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     sub = ap.add_subparsers(dest="cmd", required=True)
 
-    ap_cont = sub.add_parser("continuous", help="Continuously capture PCAP from an interface and extract features")
-    ap_cont.add_argument("-i", "--iface", required=True, help="Interface (ex: enp0s3, eth0, etc)")
-    ap_cont.add_argument("-d", "--duration", type=int, default=60, help="Duration (s)")
-    ap_cont.add_argument("-o", "--outdir", required=True, help="Output directory for .pcap files")
-    ap_cont.add_argument("-s", "--snaplen", type=int, default=96, help="Snaplen (bytes)")
+    ap_pl = sub.add_parser("continuous", help="Continuously capture PCAP from an interface and extrac features")
+    ap_pl.add_argument("-i", "--iface", required=True, help="Interface (ex: enp0s3, eth0, etc)")
+    ap_pl.add_argument("-d", "--duration", type=int, default=60, help="Duration (s)")
+    ap_pl.add_argument("-o", "--outdir", required=True, help="Output directory for .pcap files")
+    ap_pl.add_argument("-s", "--snaplen", type=int, default=96, help="Snaplen (bytes)")
 
     ap_cap = sub.add_parser("capture", help="Capture PCAP from an interface")
     ap_cap.add_argument("-i", "--iface", required=True, help="Interface (ex: enp0s3, eth0, etc)")
@@ -56,12 +57,11 @@ def main():
         while True:
             workflow = chain(
                 run_capture_task.s(args.outdir, args.iface, args.duration, snaplen=args.snaplen),
-                run_features_task.s("features/"),
-                run_datasets_task.s("datasets/"),
+                run_features_task.s(args.pcap, 'features/'),
+                run_datasets_task.s('datasets/'),
                 run_ml_anomaly_task.s("models", "datasets", 0.05)
             )
             result_async = workflow.delay()
-            final_result = result_async.get()
             print(f"Task Continuous, ID: ", workflow)
 
     if args.cmd == "capture":
@@ -80,11 +80,11 @@ def main():
         task = run_ml_anomaly_task.delay(args.dataset, args.outdir, args.scoredir, args.contamination)
         print(f"Task ML, ID: ", task)
 
-    if args.cmd == "pipeline":
+    elif args.cmd == "pipeline":
         workflow = chain(
-            run_features_task.s(args.pcap, "features/"),
-            run_datasets_task.s("datasets/"),
-            run_ml_anomaly_task.s("models", "datasets", 0.05)
+            run_features_task.s(args.pcap, 'features/'),
+            run_datasets_task.s('datasets/'),
+            run_ml_anomaly_task.s('models', 'datasets', 0.05)
         )
         result_async = workflow.delay()
         print(f"Task Pipeline, ID: ", result_async)
