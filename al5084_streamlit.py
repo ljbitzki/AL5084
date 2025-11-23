@@ -158,7 +158,6 @@ def main():
 
             if task_result.status not in ["SUCCESS", "FAILURE"]:
                 st_autorefresh(interval=500, limit=None, key="extract_poll")
-
             elif task_result.successful():
                 output_files = task_result.get()
                 st.success(f"Dataset generation complete! File saved in `datasets/`:")
