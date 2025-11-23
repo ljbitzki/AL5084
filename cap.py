@@ -1,10 +1,9 @@
-""".pcap capture"""
+"""Captura/coleta .pcap"""
 import shutil
 import time
 from datetime import datetime
 import subprocess
 import sys
-from celery import shared_task
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional
@@ -19,12 +18,11 @@ def which_or_none(prog: str) -> Optional[str]:
     """Checks if the executable exists"""
     return shutil.which(prog)
 
-@shared_task
 def run_cmd(cmd: List[str], timeout: Optional[int] = None) -> subprocess.CompletedProcess:
     """Executes command with minimal logging and validates return."""
     print(f"[CMD] {' '.join(cmd)}", file=sys.stderr)
     try:
-        cp = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, check=True)
+        cp = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, check=False)
     except Exception as e:
         raise RuntimeError(f"Failed to execute {' '.join(cmd)}: {e}") from e
     if cp.returncode != 0:
@@ -67,7 +65,7 @@ def capture_pcap(output: str, interface: str, duration: int, snaplen: int = 96) 
             "-F",
             "pcap"
         ]
-        subprocess.run(cmd, check=True)
+        run_cmd(cmd)
         return out
         
     if tcpdump:
@@ -83,7 +81,7 @@ def capture_pcap(output: str, interface: str, duration: int, snaplen: int = 96) 
             str(snaplen),
             "-w", str(out)
             ]
-        subprocess.run(cmd, check=True)
+        run_cmd(cmd)
         return out
     if not SCAPY_AVAILABLE:
         raise RuntimeError("No capturers found (tshark/tcpdump/scapy). Please install at least one.")

@@ -1,4 +1,6 @@
-"""Start of Machine Learning models module"""
+'''
+Start of Machine Learning models module
+'''
 from __future__ import annotations
 from pathlib import Path
 from datetime import datetime

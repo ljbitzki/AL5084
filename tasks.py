@@ -1,6 +1,4 @@
-"""Celery tasks"""
 from celery import Celery
-from celery import shared_task
 from cap import capture_pcap
 from feat import extract_features
 from ds import build_dataset_unsupervised
@@ -9,10 +7,6 @@ from pathlib import Path
 
 app = Celery("tasks")
 app.config_from_object("celeryconfig")
-
-# ---------------------------------------------------------------------
-# Main tasks
-# ---------------------------------------------------------------------
 
 @app.task
 def run_capture_task(output, interface, duration, snaplen):

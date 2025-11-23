@@ -1,4 +1,4 @@
-"""Features extraction for dataset"""
+"""Feature extraction for dataset"""
 import os
 import shutil
 import subprocess
