@@ -16,7 +16,7 @@ Disciplina de Desenvolvimento de Software PPGES Unipampa
 #### Installing dependencies and tweaking at the Operating System level (packages)
 ```
 sudo apt update
-sudo apt install tshark tcpdump python3-venv wireshark redis git -y
+sudo apt install tshark tcpdump python3-venv cmake wireshark redis git -y
 sudo dpkg-reconfigure wireshark-common
 sudo chmod +x /usr/bin/dumpcap
 ```
@@ -35,6 +35,8 @@ git clone https://github.com/ahlashkari/NTLFlowLyzer.git
 cd NTLFlowLyzer
 pip install -r requirements.txt
 python3 setup.py install
+cd ../
+pip install -r requirements.txt
 ```
 
 ---
@@ -58,7 +60,7 @@ python al5084.py capture -i enp0s3 -d 10 -o captures/
 ```
 
 ##### Parameters:
-- `capture/pipeline`: CLI command selector to trigger capture layer.
+- `capture/continuous`: CLI command selector to trigger capture layer.
 - `-i` or `--iface`: Network interface for capture (ex: eth0, enp0s3, etc).
 - `-d` or `--duration`: Time at which capture will automatically end (in seconds).
 - `-o` or `--outdir`: Output directory/desired_filename.pcap.
@@ -75,7 +77,7 @@ python al5084.py features -p captures/capture_file.pcap -o features/
 - `-p` or `--pcap`: .pcap file to be analyzed.
 - `-o` or `--outdir`: Extraction output directory.
 
-#### Executing dataset generation from a file of extracted features/flows
+#### Executing dataset generation from a extracted features/flows file
 
 ```
 python al5084.py build-ds -c features/capture.scapyflows.csv -o datasets/
@@ -102,6 +104,18 @@ python al5084.py machine-learning -c datasets/unsupervised.20251116_132459.csv
 - `-s` or `--scoredir`: Output score directory
 - `-c` or `--contamination`: Default ~5% of expected flows are anomalous.
 ---
+
+#### Execute the entire pipeline from a capture file
+
+`Analyze a .pcap` 🠒 `Features extraction` 🠒 `Dataset generation` 🠒 `IsolationForest classification`
+
+```
+python al5084.py pipeline -p captures/capture_file.pcap
+```
+
+##### Parameters:
+- `pipeline`: CLI command selector to trigger the entire pipeline.
+- `-p` or `--pcap`: .pcap file to be analyzed.
 
 #### Using Streamlit:
 

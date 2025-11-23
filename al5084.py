@@ -2,19 +2,18 @@
 import argparse
 import cap as mCAP
 from pathlib import Path
+from celery.result import AsyncResult
+from celery import Celery
+from celery import chain
 from tasks import (
     run_capture_task,
     run_features_task,
     run_datasets_task,
     run_ml_anomaly_task
 )
-from celery.result import AsyncResult
-from celery import Celery
-from celery import chain
-
 
 def main():
-    """Main function"""
+    """Main function. Depending on the argument received by argparse, the corresponding module will be executed."""
     ap = argparse.ArgumentParser(
         prog="al5084",
         description="Pipeline for capture, feature extraction, dataset generation, and ML for network traffic.",
