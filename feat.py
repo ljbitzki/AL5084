@@ -59,8 +59,8 @@ def to_epoch(ts: datetime) -> float:
 # Generates CSV of flows via argus/ra (if available).
 def extract_with_argus(pcap: Path, out_csv: Path) -> Optional[Path]:
     """Feature extraction with Argus"""
-    argus = which_or_none("argus")
-    ra = which_or_none("ra")
+    argus = which_or_none("argus_DISABLED")
+    ra = which_or_none("ra_DISABLED")
     if not (argus and ra):
         return None
     ensure_dir(out_csv)
@@ -89,7 +89,7 @@ def extract_with_argus(pcap: Path, out_csv: Path) -> Optional[Path]:
 # Generate CSV of flows via cicflowmeter (Python port)
 def extract_with_cicflowmeter(pcap: Path, out_csv: Path) -> Optional[Path]:
     """Feature extraction with CICFlowMeter"""
-    cfm = which_or_none("cicflowmeter_XXX")
+    cfm = which_or_none("cicflowmeter_DISABLED")
     if not cfm:
         return None
     ensure_dir(out_csv)
@@ -202,12 +202,12 @@ def extract_with_tshark(pcap: Path, out_csv: Path) -> Optional[Path]:
 def flow_id(self) -> str:
     """Return flow id"""
     return f"{self.src}:{self.sport}→{self.dst}:{self.dport}/{self.proto}@{self.stime:.3f}"
-
-SCAPY_AVAILABLE = True
-try:
-    from scapy.all import IP, IPv6, TCP, UDP, ICMP, Raw, PcapReader, wrpcap, Ether
-except Exception:
-    SCAPY_AVAILABLE = False
+SCAPY_AVAILABLE = False
+#SCAPY_AVAILABLE = True
+#try:
+#    from scapy.all import IP, IPv6, TCP, UDP, ICMP, Raw, PcapReader, wrpcap, Ether
+#except Exception:
+#    SCAPY_AVAILABLE = False
 
 def extract_with_scapy(pcap: Path, out_csv: Path) -> Optional[Path]:
     """Python Fallback: 5-Tuple Aggregation with Essential Features."""
