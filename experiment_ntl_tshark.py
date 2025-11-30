@@ -12,14 +12,34 @@ from ml_unsupervised import run_iforest, run_lof, run_kmeans_outlier
 PathLike = Union[str, Path]
 
 def _ensure_file(path: PathLike) -> Path:
-    """Checks if directory/file exists"""
+    """
+    Checks if directory/file exists
+
+    Args:
+        path (PathLike): A path to try
+
+    Raises:
+        FileNotFoundError: File not found:
+
+    Returns:
+        Path: Path
+    """    
     p = Path(path)
     if not p.is_file():
         raise FileNotFoundError(f"File not found: {p}")
     return p
 
 def load_ntflow_csv(path: PathLike) -> pd.DataFrame:
-    """ NTLFlowLyzer loader"""
+    """
+    Process NTLFlowLyzer flows in csv
+
+    Args:
+        path (PathLike): Path to NTLFlowLyzer csv file
+
+    Returns:
+        pd.DataFrame: all headers
+    """    
+
     p = _ensure_file(path)
     df = pd.read_csv(p, engine="python")
 
@@ -44,9 +64,15 @@ def load_ntflow_csv(path: PathLike) -> pd.DataFrame:
 
 def load_tsharkflows_csv(path: PathLike) -> pd.DataFrame:
     """
-    Typical Header:
-      ip.src,ip.dst,srcport,dstport,proto,stime,ltime,dur,pkts,bytes,...
-    """
+    Process tshark flows in csv
+
+    Args:
+        path (PathLike): Path to tshark csv file
+
+    Returns:
+        pd.DataFrame: Typical Header: ip.src,ip.dst,srcport,dstport,proto,stime,ltime,dur,pkts,bytes,...
+    """    
+    
     p = _ensure_file(path)
     df = pd.read_csv(p, engine="python")
 
@@ -66,9 +92,15 @@ def load_tsharkflows_csv(path: PathLike) -> pd.DataFrame:
 
 def load_scapyflows_csv(path: PathLike) -> pd.DataFrame:
     """
-    Typical Header:
-      ip.src,srcport,ip.dst,dstport,proto,stime,ltime,dur,pkts,bytes,payload_bytes,...
-    """
+    Process scapy flows in csv
+
+    Args:
+        path (PathLike): Path to scapy csv file
+
+    Returns:
+        pd.DataFrame: Typical Header: ip.src,srcport,ip.dst,dstport,proto,stime,ltime,dur,pkts,bytes,payload_bytes,...
+    """  
+
     p = _ensure_file(path)
     df = pd.read_csv(p, engine="python")
 
@@ -90,8 +122,17 @@ def load_other_flows_csv(path: PathLike) -> Tuple[pd.DataFrame, str]:
     """
     Detects whether the CSV is from tsharkflows or scapyflows based on the columns,
     loads and normalizes it appropriately.
-    Returns (df, tool_name) with tool_name in {"tsharkflows", "scapyflows"}.
-    """
+
+    Args:
+        path (PathLike):Path to a csv file
+
+    Raises:
+        ValueError: Could not detect tool
+
+    Returns:
+        Tuple[pd.DataFrame, str]: (df, tool_name) with tool_name in {"tsharkflows", "scapyflows"}.
+    """    
+
     p = _ensure_file(path)
     df_raw = pd.read_csv(p, engine="python")
 
@@ -108,7 +149,15 @@ def load_other_flows_csv(path: PathLike) -> Tuple[pd.DataFrame, str]:
     raise ValueError(f"Could not detect tool type (tshark/scapy) from columns of {p}")
 
 def _add_flow_key(df: pd.DataFrame) -> pd.DataFrame:
-    """flow_key (for intersection)"""
+    """flow_key (for intersection)
+
+    Args:
+        df (pd.DataFrame): Pandas DataFrame
+
+    Returns:
+        pd.DataFrame: Pandas DataFrame with flow_key
+    """    
+
     needed = ["src_ip", "dst_ip", "src_port", "dst_port", "proto"]
     if not all(c in df.columns for c in needed):
         return df
@@ -162,25 +211,35 @@ def run_experiment(
     algos: List[str] = None,
     min_score: float | None = None,
 ) -> None:
-    """Run experiment"""
+    """
+    Run the experiment
+
+    Args:
+        ntflow_csv (PathLike): Path to NTLFlowLyzer csv file
+        other_csv (PathLike): Path to another tool csv file
+        contamination (float, optional): contamination. Defaults to 0.05.
+        top_n (int, optional): How many lines to print. Defaults to 15.
+        algos (List[str], optional): algorith picker. Defaults to None.
+        min_score (float | None, optional): minimum score to consider. Defaults to None.
+    """
     if algos is None:
         algos = ["iforest"]
 
-    # -------------------- ntflowlyzer --------------------
+    #  ntflowlyzer 
     df_nt = load_ntflow_csv(ntflow_csv)
     print(f"\nntflowlyzer: {df_nt.shape[0]} flows, {df_nt.shape[1]} columns")
 
     meta_cols_nt = [c for c in ["flow_id", "src_ip", "dst_ip", "src_port", "dst_port", "proto", "timestamp"] if c in df_nt.columns]
     meta_nt = df_nt[meta_cols_nt].copy() if meta_cols_nt else pd.DataFrame(index=df_nt.index)
 
-    # -------------------- other tools --------------------
+    #  other tools 
     df_other, tool_name = load_other_flows_csv(other_csv)
     print(f"{tool_name}: {df_other.shape[0]} flows, {df_other.shape[1]} columns")
 
     meta_cols_ot = [c for c in ["flow_id", "src_ip", "dst_ip", "src_port", "dst_port", "proto", "stime", "ltime"] if c in df_other.columns]
     meta_ot = df_other[meta_cols_ot].copy() if meta_cols_ot else pd.DataFrame(index=df_other.index)
 
-    # -------------------- for each algorithm --------------------
+    #  for each algorithm 
     for algo in algos:
         print("\n" + "=" * 60)
         print(f" ALGORITHM: {algo.upper()}")
@@ -258,6 +317,9 @@ def run_experiment(
 
 
 def main() -> None:
+    """
+    Main function with argparse
+    """    
     parser = argparse.ArgumentParser(
         description="Experiment: ntflowlyzer vs tshark/scapy with various anomaly algorithms."
     )

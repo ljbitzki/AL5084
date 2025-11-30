@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>feat &#8212; AL5084  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=686e5160" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
+    <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for feat</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Feature extraction for dataset&quot;&quot;&quot;</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">shutil</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">subprocess</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">tempfile</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timezone</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="n">ARGUS_FIELDS</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s2">&quot;stime&quot;</span><span class="p">,</span> <span class="s2">&quot;ltime&quot;</span><span class="p">,</span> <span class="s2">&quot;dur&quot;</span><span class="p">,</span> <span class="s2">&quot;saddr&quot;</span><span class="p">,</span> <span class="s2">&quot;sport&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;dir&quot;</span><span class="p">,</span> <span class="s2">&quot;daddr&quot;</span><span class="p">,</span> <span class="s2">&quot;dport&quot;</span><span class="p">,</span> <span class="s2">&quot;proto&quot;</span><span class="p">,</span> <span class="s2">&quot;state&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;pkts&quot;</span><span class="p">,</span> <span class="s2">&quot;bytes&quot;</span><span class="p">,</span> <span class="s2">&quot;spkts&quot;</span><span class="p">,</span> <span class="s2">&quot;dpkts&quot;</span><span class="p">,</span> <span class="s2">&quot;sbytes&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;dbytes&quot;</span><span class="p">,</span> <span class="s2">&quot;tos&quot;</span><span class="p">,</span> <span class="s2">&quot;stos&quot;</span><span class="p">,</span> <span class="s2">&quot;dtos&quot;</span><span class="p">,</span> <span class="s2">&quot;apply&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;swin&quot;</span><span class="p">,</span> <span class="s2">&quot;dwin&quot;</span><span class="p">,</span> <span class="s2">&quot;sco&quot;</span><span class="p">,</span> <span class="s2">&quot;dco&quot;</span><span class="p">,</span> <span class="s2">&quot;trans&quot;</span><span class="p">,</span> <span class="s2">&quot;rate&quot;</span><span class="p">,</span>
+<span class="p">]</span>
+
+<span class="n">TSHARK_FIELDS</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s2">&quot;frame.time_epoch&quot;</span><span class="p">,</span> <span class="s2">&quot;ip.src&quot;</span><span class="p">,</span> <span class="s2">&quot;ip.dst&quot;</span><span class="p">,</span> <span class="s2">&quot;tcp.srcport&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;tcp.dstport&quot;</span><span class="p">,</span> <span class="s2">&quot;udp.srcport&quot;</span><span class="p">,</span> <span class="s2">&quot;udp.dstport&quot;</span><span class="p">,</span> <span class="s2">&quot;ip.proto&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;frame.len&quot;</span><span class="p">,</span> <span class="s2">&quot;tcp.flags&quot;</span><span class="p">,</span> <span class="s2">&quot;tcp.window_size_value&quot;</span><span class="p">,</span>
+<span class="p">]</span>
+
+<div class="viewcode-block" id="which_or_none">
+<a class="viewcode-back" href="../feat.html#feat.which_or_none">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">which_or_none</span><span class="p">(</span><span class="n">prog</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Checks if the executable exists</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        prog (str): Executable to try if exists</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Optional[str]: Executable in the system&#39;s path that shutil Python module locates</span>
+<span class="sd">    &quot;&quot;&quot;</span>   
+    <span class="k">return</span> <span class="n">shutil</span><span class="o">.</span><span class="n">which</span><span class="p">(</span><span class="n">prog</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="run_cmd">
+<a class="viewcode-back" href="../feat.html#feat.run_cmd">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">run_cmd</span><span class="p">(</span><span class="n">cmd</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">timeout</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">CompletedProcess</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Executes command with minimal logging and validates return</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        cmd (List[str]): Command list</span>
+<span class="sd">        timeout (Optional[int], optional): Defines the timeout for subprocess. Defaults to None.</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        RuntimeError: Failed to execute</span>
+<span class="sd">        RuntimeError: Command failed</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        subprocess.CompletedProcess: Subprocess completed status</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[CMD] </span><span class="si">{</span><span class="s1">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">cmd</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">file</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stderr</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">cp</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">cmd</span><span class="p">,</span> <span class="n">capture_output</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">text</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span><span class="p">,</span> <span class="n">check</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to execute </span><span class="si">{</span><span class="s1">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">cmd</span><span class="p">)</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
+    <span class="k">if</span> <span class="n">cp</span><span class="o">.</span><span class="n">returncode</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="c1"># Does not automatically abort, returns stderr useful for diagnostics.</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Command failed (rc=</span><span class="si">{</span><span class="n">cp</span><span class="o">.</span><span class="n">returncode</span><span class="si">}</span><span class="s2">): </span><span class="si">{</span><span class="s1">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">cmd</span><span class="p">)</span><span class="si">}</span><span class="se">\n</span><span class="s2">STDERR:</span><span class="se">\n</span><span class="si">{</span><span class="n">cp</span><span class="o">.</span><span class="n">stderr</span><span class="p">[:</span><span class="mi">1000</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="n">cp</span></div>
+
+
+<div class="viewcode-block" id="ensure_dir">
+<a class="viewcode-back" href="../feat.html#feat.ensure_dir">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">ensure_dir</span><span class="p">(</span><span class="n">p</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Ensures that the &#39;path&#39; directory exists.</span>
+<span class="sd">    If &#39;path&#39; has a suffix (looks like a file), it creates the parent;</span>
+<span class="sd">    if it doesn&#39;t, it creates the path itself as a directory.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        p (Path): Path to try if exists</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">p</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="now_epoch">
+<a class="viewcode-back" href="../feat.html#feat.now_epoch">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">now_epoch</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Now in unix timestamp</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        float: unix timestamp</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="to_epoch">
+<a class="viewcode-back" href="../feat.html#feat.to_epoch">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">to_epoch</span><span class="p">(</span><span class="n">ts</span><span class="p">:</span> <span class="n">datetime</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Conversion to unix timestamp</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        ts (datetime): unix timestamp</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        float: timestamp</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">ts</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">tzinfo</span><span class="o">=</span><span class="n">timezone</span><span class="o">.</span><span class="n">utc</span><span class="p">)</span><span class="o">.</span><span class="n">timestamp</span><span class="p">()</span></div>
+
+
+<span class="c1"># Generates CSV of flows via argus/ra (if available).</span>
+<div class="viewcode-block" id="extract_with_argus">
+<a class="viewcode-back" href="../feat.html#feat.extract_with_argus">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">extract_with_argus</span><span class="p">(</span><span class="n">pcap</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">out_csv</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Path</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Feature extraction with Argus</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        pcap (Path): Path to pcap file</span>
+<span class="sd">        out_csv (Path): Patch to output csv file</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Optional[Path]: Path to process file with Argus</span>
+<span class="sd">    &quot;&quot;&quot;</span>    
+
+    <span class="n">argus</span> <span class="o">=</span> <span class="n">which_or_none</span><span class="p">(</span><span class="s2">&quot;argus_DISABLED&quot;</span><span class="p">)</span> <span class="c1"># Executable name changed to disable Argus</span>
+    <span class="n">ra</span> <span class="o">=</span> <span class="n">which_or_none</span><span class="p">(</span><span class="s2">&quot;ra_DISABLED&quot;</span><span class="p">)</span> <span class="c1"># Executable name changed to disable ReadArgus</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">argus</span> <span class="ow">and</span> <span class="n">ra</span><span class="p">):</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="n">ensure_dir</span><span class="p">(</span><span class="n">out_csv</span><span class="p">)</span>
+    <span class="k">with</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">()</span> <span class="k">as</span> <span class="n">td</span><span class="p">:</span>
+        <span class="n">argus_bin</span> <span class="o">=</span> <span class="p">[</span><span class="n">argus</span><span class="p">,</span> <span class="s2">&quot;-r&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">pcap</span><span class="p">),</span> <span class="s2">&quot;-w&quot;</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">td</span><span class="p">,</span> <span class="s2">&quot;argus.out&quot;</span><span class="p">)]</span>
+        <span class="n">run_cmd</span><span class="p">(</span><span class="n">argus_bin</span><span class="p">)</span>
+        <span class="c1"># -c , CSV separator; -s selects fields</span>
+        <span class="n">sel</span> <span class="o">=</span> <span class="s2">&quot;,&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">ARGUS_FIELDS</span><span class="p">)</span>
+        <span class="n">ra_cmd</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">ra</span><span class="p">,</span>
+            <span class="s2">&quot;-r&quot;</span><span class="p">,</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">td</span><span class="p">,</span> <span class="s2">&quot;argus.out&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;-c&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;,&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-s&quot;</span><span class="p">,</span>
+            <span class="n">sel</span><span class="p">,</span>
+        <span class="p">]</span>
+        <span class="n">cp</span> <span class="o">=</span> <span class="n">run_cmd</span><span class="p">(</span><span class="n">ra_cmd</span><span class="p">)</span>
+        <span class="c1"># Argus does not print header by default</span>
+        <span class="n">header</span> <span class="o">=</span> <span class="s2">&quot;,&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">ARGUS_FIELDS</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">out_csv</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">,</span> <span class="n">newline</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">header</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">cp</span><span class="o">.</span><span class="n">stdout</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">out_csv</span></div>
+
+
+<span class="c1"># Generate CSV of flows via cicflowmeter (Python port)</span>
+<div class="viewcode-block" id="extract_with_cicflowmeter">
+<a class="viewcode-back" href="../feat.html#feat.extract_with_cicflowmeter">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">extract_with_cicflowmeter</span><span class="p">(</span><span class="n">pcap</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">out_csv</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Path</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Feature extraction with CICFlowMeter</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        pcap (Path): Path to pcap file</span>
+<span class="sd">        out_csv (Path): Patch to output csv file</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Optional[Path]: Path to process file with CICFlowMeter</span>
+<span class="sd">    &quot;&quot;&quot;</span>  
+
+    <span class="n">cfm</span> <span class="o">=</span> <span class="n">which_or_none</span><span class="p">(</span><span class="s2">&quot;cicflowmeter_DISABLED&quot;</span><span class="p">)</span> <span class="c1"># Executable name changed to disable CICFlowMeter</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">cfm</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="n">ensure_dir</span><span class="p">(</span><span class="n">out_csv</span><span class="p">)</span>
+    <span class="c1"># Typical CLI: cicflowmeter -f input.pcap -c output.csv</span>
+    <span class="n">run_cmd</span><span class="p">([</span><span class="n">cfm</span><span class="p">,</span> <span class="s2">&quot;-f&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">pcap</span><span class="p">),</span> <span class="s2">&quot;-c&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">out_csv</span><span class="p">)])</span>
+    <span class="k">return</span> <span class="n">out_csv</span></div>
+
+
+<span class="c1"># Extract per-packet flows in Python with tshark.</span>
+<div class="viewcode-block" id="extract_with_tshark">
+<a class="viewcode-back" href="../feat.html#feat.extract_with_tshark">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">extract_with_tshark</span><span class="p">(</span><span class="n">pcap</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">out_csv</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Path</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Feature extraction with Tshark</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        pcap (Path): Path to pcap file</span>
+<span class="sd">        out_csv (Path): Patch to output csv file</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Optional[Path]: Path to process file with Tshark</span>
+<span class="sd">    &quot;&quot;&quot;</span>  
+    <span class="n">tshark</span> <span class="o">=</span> <span class="n">which_or_none</span><span class="p">(</span><span class="s2">&quot;tshark&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">tshark</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="n">ensure_dir</span><span class="p">(</span><span class="n">out_csv</span><span class="p">)</span>
+
+    <span class="n">cmd</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">tshark</span><span class="p">,</span>
+        <span class="s2">&quot;-r&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">pcap</span><span class="p">),</span>
+        <span class="s2">&quot;-T&quot;</span><span class="p">,</span> <span class="s2">&quot;fields&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;-E&quot;</span><span class="p">,</span> <span class="s2">&quot;header=y&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;-E&quot;</span><span class="p">,</span> <span class="s2">&quot;separator=</span><span class="se">\t</span><span class="s2">&quot;</span><span class="p">,</span>  <span class="c1"># use TAB</span>
+        <span class="s2">&quot;-E&quot;</span><span class="p">,</span> <span class="s2">&quot;quote=d&quot;</span><span class="p">,</span>       <span class="c1"># double-quotes</span>
+        <span class="s2">&quot;-E&quot;</span><span class="p">,</span> <span class="s2">&quot;occurrence=f&quot;</span><span class="p">,</span>  <span class="c1"># first occurrence</span>
+    <span class="p">]</span>
+    <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">TSHARK_FIELDS</span><span class="p">:</span>
+        <span class="n">cmd</span> <span class="o">+=</span> <span class="p">[</span><span class="s2">&quot;-e&quot;</span><span class="p">,</span> <span class="n">f</span><span class="p">]</span>
+
+    <span class="n">cp</span> <span class="o">=</span> <span class="n">run_cmd</span><span class="p">(</span><span class="n">cmd</span><span class="p">)</span>
+
+    <span class="c1"># CSV per-packet</span>
+    <span class="n">pkt_csv</span> <span class="o">=</span> <span class="n">out_csv</span><span class="o">.</span><span class="n">with_suffix</span><span class="p">(</span><span class="s2">&quot;.packets.csv&quot;</span><span class="p">)</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">pkt_csv</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">cp</span><span class="o">.</span><span class="n">stdout</span><span class="p">)</span>
+
+    <span class="c1"># Aggregate in flows (directional)</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span>
+        <span class="n">pkt_csv</span><span class="p">,</span>
+        <span class="n">sep</span><span class="o">=</span><span class="s2">&quot;</span><span class="se">\t</span><span class="s2">&quot;</span><span class="p">,</span>
+        <span class="n">engine</span><span class="o">=</span><span class="s2">&quot;python&quot;</span><span class="p">,</span>
+        <span class="n">on_bad_lines</span><span class="o">=</span><span class="s2">&quot;warn&quot;</span><span class="p">,</span>  <span class="c1"># or &quot;skip&quot;/&quot;error&quot; according to your tolerance</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Normalize missing columns (qif not TCP/UDP)</span>
+    <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="p">[</span>
+        <span class="s2">&quot;tcp.srcport&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;tcp.dstport&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;udp.srcport&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;udp.dstport&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;tcp.window_size_value&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;tcp.flags&quot;</span><span class="p">,</span>
+    <span class="p">]:</span>
+        <span class="k">if</span> <span class="n">c</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+            <span class="n">df</span><span class="p">[</span><span class="n">c</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
+
+    <span class="n">df</span><span class="p">[</span><span class="s2">&quot;srcport&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;tcp.srcport&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;udp.srcport&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+    <span class="n">df</span><span class="p">[</span><span class="s2">&quot;dstport&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;tcp.dstport&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;udp.dstport&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+    <span class="n">df</span><span class="p">[</span><span class="s2">&quot;proto&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_numeric</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;ip.proto&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="n">errors</span><span class="o">=</span><span class="s2">&quot;coerce&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+    <span class="n">df</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_numeric</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;frame.time_epoch&quot;</span><span class="p">],</span> <span class="n">errors</span><span class="o">=</span><span class="s2">&quot;coerce&quot;</span><span class="p">)</span>
+    <span class="n">df</span><span class="p">[</span><span class="s2">&quot;len&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_numeric</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;frame.len&quot;</span><span class="p">],</span> <span class="n">errors</span><span class="o">=</span><span class="s2">&quot;coerce&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+    <span class="n">df</span><span class="p">[</span><span class="s2">&quot;tcp_window&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_numeric</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;tcp.window_size_value&quot;</span><span class="p">],</span> <span class="n">errors</span><span class="o">=</span><span class="s2">&quot;coerce&quot;</span><span class="p">)</span>
+    <span class="n">df</span><span class="p">[</span><span class="s2">&quot;tcp_flags&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;tcp.flags&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span>
+
+    <span class="n">key_cols</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;ip.src&quot;</span><span class="p">,</span> <span class="s2">&quot;ip.dst&quot;</span><span class="p">,</span> <span class="s2">&quot;srcport&quot;</span><span class="p">,</span> <span class="s2">&quot;dstport&quot;</span><span class="p">,</span> <span class="s2">&quot;proto&quot;</span><span class="p">]</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">dropna</span><span class="p">(</span><span class="n">subset</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;ip.src&quot;</span><span class="p">,</span> <span class="s2">&quot;ip.dst&quot;</span><span class="p">,</span> <span class="s2">&quot;time&quot;</span><span class="p">])</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">aggregate</span><span class="p">(</span><span class="n">group</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Aggregation group with Pandas</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            group (pd.DataFrame): Pandas DataFrame</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            pd.Series: Pandas DataFrame</span>
+<span class="sd">        &quot;&quot;&quot;</span>        
+        <span class="n">times</span> <span class="o">=</span> <span class="n">group</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+        <span class="n">iats</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">times</span><span class="p">))</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">times</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.0</span><span class="p">])</span>
+        <span class="n">flags</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">group</span><span class="p">[</span><span class="s2">&quot;tcp_flags&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
+        <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span>
+            <span class="p">{</span>
+                <span class="s2">&quot;stime&quot;</span><span class="p">:</span> <span class="n">times</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span>
+                <span class="s2">&quot;ltime&quot;</span><span class="p">:</span> <span class="n">times</span><span class="o">.</span><span class="n">max</span><span class="p">(),</span>
+                <span class="s2">&quot;dur&quot;</span><span class="p">:</span> <span class="n">times</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">-</span> <span class="n">times</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span>
+                <span class="s2">&quot;pkts&quot;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">group</span><span class="p">),</span>
+                <span class="s2">&quot;bytes&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">group</span><span class="p">[</span><span class="s2">&quot;len&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()),</span>
+                <span class="s2">&quot;pkt_len_mean&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">group</span><span class="p">[</span><span class="s2">&quot;len&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">()),</span>
+                <span class="s2">&quot;pkt_len_std&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">group</span><span class="p">[</span><span class="s2">&quot;len&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="n">ddof</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">group</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="mf">0.0</span><span class="p">),</span>
+                <span class="s2">&quot;iat_mean&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">iats</span><span class="o">.</span><span class="n">mean</span><span class="p">()),</span>
+                <span class="s2">&quot;iat_std&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">iats</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="n">ddof</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">iats</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="mf">0.0</span><span class="p">),</span>
+                <span class="s2">&quot;tcp_window_mean&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">group</span><span class="p">[</span><span class="s2">&quot;tcp_window&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">skipna</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span> <span class="k">if</span> <span class="n">group</span><span class="p">[</span><span class="s2">&quot;tcp_window&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">notna</span><span class="p">()</span><span class="o">.</span><span class="n">any</span><span class="p">()</span> <span class="k">else</span> <span class="mf">0.0</span><span class="p">,</span>
+                <span class="s2">&quot;syn_cnt&quot;</span><span class="p">:</span> <span class="n">flags</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="s2">&quot;0x00000002&quot;</span><span class="p">),</span>
+                <span class="s2">&quot;fin_cnt&quot;</span><span class="p">:</span> <span class="n">flags</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="s2">&quot;0x00000001&quot;</span><span class="p">),</span>
+                <span class="s2">&quot;rst_cnt&quot;</span><span class="p">:</span> <span class="n">flags</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="s2">&quot;0x00000004&quot;</span><span class="p">),</span>
+                <span class="s2">&quot;ack_cnt&quot;</span><span class="p">:</span> <span class="n">flags</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="s2">&quot;0x00000010&quot;</span><span class="p">),</span>
+                <span class="s2">&quot;psh_cnt&quot;</span><span class="p">:</span> <span class="n">flags</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="s2">&quot;0x00000008&quot;</span><span class="p">),</span>
+            <span class="p">}</span>
+        <span class="p">)</span>
+
+    <span class="n">flows</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="n">key_cols</span><span class="p">,</span> <span class="n">dropna</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">aggregate</span><span class="p">)</span><span class="o">.</span><span class="n">reset_index</span><span class="p">()</span>
+
+    <span class="n">flows</span><span class="p">[</span><span class="s2">&quot;flow_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">flows</span><span class="p">[</span><span class="s2">&quot;ip.src&quot;</span><span class="p">]</span>
+        <span class="o">+</span> <span class="s2">&quot;:&quot;</span>
+        <span class="o">+</span> <span class="n">flows</span><span class="p">[</span><span class="s2">&quot;srcport&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span>
+        <span class="o">+</span> <span class="s2">&quot;→&quot;</span>
+        <span class="o">+</span> <span class="n">flows</span><span class="p">[</span><span class="s2">&quot;ip.dst&quot;</span><span class="p">]</span>
+        <span class="o">+</span> <span class="s2">&quot;:&quot;</span>
+        <span class="o">+</span> <span class="n">flows</span><span class="p">[</span><span class="s2">&quot;dstport&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span>
+        <span class="o">+</span> <span class="s2">&quot;/&quot;</span>
+        <span class="o">+</span> <span class="n">flows</span><span class="p">[</span><span class="s2">&quot;proto&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span>
+        <span class="o">+</span> <span class="s2">&quot;@&quot;</span>
+        <span class="o">+</span> <span class="n">flows</span><span class="p">[</span><span class="s2">&quot;stime&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span>
+    <span class="p">)</span>
+
+    <span class="n">flows</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">out_csv</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">out_csv</span></div>
+
+
+<div class="viewcode-block" id="flow_id">
+<a class="viewcode-back" href="../feat.html#feat.flow_id">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">flow_id</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return flow id</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        str: flows_id</span>
+<span class="sd">    &quot;&quot;&quot;</span>    
+
+    <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">src</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">sport</span><span class="si">}</span><span class="s2">→</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">dst</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">dport</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">proto</span><span class="si">}</span><span class="s2">@</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">stime</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">&quot;</span></div>
+
+<span class="n">SCAPY_AVAILABLE</span> <span class="o">=</span> <span class="kc">False</span>
+<span class="c1">#SCAPY_AVAILABLE = True</span>
+<span class="c1">#try:</span>
+<span class="c1">#    from scapy.all import IP, IPv6, TCP, UDP, ICMP, Raw, PcapReader, wrpcap, Ether</span>
+<span class="c1">#except Exception:</span>
+<span class="c1">#    SCAPY_AVAILABLE = False</span>
+
+<div class="viewcode-block" id="extract_with_scapy">
+<a class="viewcode-back" href="../feat.html#feat.extract_with_scapy">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">extract_with_scapy</span><span class="p">(</span><span class="n">pcap</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">out_csv</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Path</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Python Fallback: 5-Tuple Aggregation with Essential Features.</span>
+<span class="sd">    Intentionally disabled because processing via Scapy is performed</span>
+<span class="sd">    with NTLFlowLyzer (which already uses Scapy as a miner).</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        pcap (Path): Path to pcap file</span>
+<span class="sd">        out_csv (Path): Path to outuput csv file</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Optional[Path]: Path to extracted csv file</span>
+<span class="sd">    &quot;&quot;&quot;</span>    
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">SCAPY_AVAILABLE</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="n">features</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]]]]</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">key_from_pkt</span><span class="p">(</span><span class="n">pkt</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]:</span>
+        <span class="n">ip</span><span class="p">,</span> <span class="n">proto</span><span class="p">,</span> <span class="n">sport</span><span class="p">,</span> <span class="n">dport</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span>
+        <span class="k">if</span> <span class="n">IP</span> <span class="ow">in</span> <span class="n">pkt</span><span class="p">:</span>
+            <span class="n">ip</span> <span class="o">=</span> <span class="n">pkt</span><span class="p">[</span><span class="n">IP</span><span class="p">]</span>
+            <span class="n">proto</span> <span class="o">=</span> <span class="n">ip</span><span class="o">.</span><span class="n">proto</span>
+            <span class="n">src</span><span class="p">,</span> <span class="n">dst</span> <span class="o">=</span> <span class="n">ip</span><span class="o">.</span><span class="n">src</span><span class="p">,</span> <span class="n">ip</span><span class="o">.</span><span class="n">dst</span>
+        <span class="k">elif</span> <span class="n">IPv6</span> <span class="ow">in</span> <span class="n">pkt</span><span class="p">:</span>
+            <span class="n">ip6</span> <span class="o">=</span> <span class="n">pkt</span><span class="p">[</span><span class="n">IPv6</span><span class="p">]</span>
+            <span class="n">proto</span> <span class="o">=</span> <span class="n">ip6</span><span class="o">.</span><span class="n">nh</span>
+            <span class="n">src</span><span class="p">,</span> <span class="n">dst</span> <span class="o">=</span> <span class="n">ip6</span><span class="o">.</span><span class="n">src</span><span class="p">,</span> <span class="n">ip6</span><span class="o">.</span><span class="n">dst</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">TCP</span> <span class="ow">in</span> <span class="n">pkt</span><span class="p">:</span>
+            <span class="n">sport</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">pkt</span><span class="p">[</span><span class="n">TCP</span><span class="p">]</span><span class="o">.</span><span class="n">sport</span><span class="p">)</span>
+            <span class="n">dport</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">pkt</span><span class="p">[</span><span class="n">TCP</span><span class="p">]</span><span class="o">.</span><span class="n">dport</span><span class="p">)</span>
+            <span class="n">proto</span> <span class="o">=</span> <span class="mi">6</span>
+        <span class="k">elif</span> <span class="n">UDP</span> <span class="ow">in</span> <span class="n">pkt</span><span class="p">:</span>
+            <span class="n">sport</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">pkt</span><span class="p">[</span><span class="n">UDP</span><span class="p">]</span><span class="o">.</span><span class="n">sport</span><span class="p">)</span>
+            <span class="n">dport</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">pkt</span><span class="p">[</span><span class="n">UDP</span><span class="p">]</span><span class="o">.</span><span class="n">dport</span><span class="p">)</span>
+            <span class="n">proto</span> <span class="o">=</span> <span class="mi">17</span>
+        <span class="k">elif</span> <span class="n">ICMP</span> <span class="ow">in</span> <span class="n">pkt</span><span class="p">:</span>
+            <span class="n">proto</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">proto</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">proto</span> <span class="ow">or</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">src</span><span class="p">),</span> <span class="nb">int</span><span class="p">(</span><span class="n">sport</span><span class="p">),</span> <span class="nb">str</span><span class="p">(</span><span class="n">dst</span><span class="p">),</span> <span class="nb">int</span><span class="p">(</span><span class="n">dport</span><span class="p">),</span> <span class="nb">int</span><span class="p">(</span><span class="n">proto</span><span class="p">))</span>
+
+    <span class="k">with</span> <span class="n">PcapReader</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">pcap</span><span class="p">))</span> <span class="k">as</span> <span class="n">rd</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">pkt</span> <span class="ow">in</span> <span class="n">rd</span><span class="p">:</span>
+            <span class="n">ts</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">pkt</span><span class="o">.</span><span class="n">time</span><span class="p">)</span>
+            <span class="n">plen</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">pkt</span><span class="p">))</span>
+            <span class="n">paylen</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">pkt</span><span class="p">[</span><span class="n">Raw</span><span class="p">]</span><span class="o">.</span><span class="n">load</span><span class="p">))</span> <span class="k">if</span> <span class="n">Raw</span> <span class="ow">in</span> <span class="n">pkt</span> <span class="k">else</span> <span class="mi">0</span>
+            <span class="n">tw</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">pkt</span><span class="p">[</span><span class="n">TCP</span><span class="p">]</span><span class="o">.</span><span class="n">window</span><span class="p">)</span> <span class="k">if</span> <span class="n">TCP</span> <span class="ow">in</span> <span class="n">pkt</span> <span class="k">else</span> <span class="kc">None</span>
+            <span class="n">tf</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">pkt</span><span class="p">[</span><span class="n">TCP</span><span class="p">]</span><span class="o">.</span><span class="n">flags</span><span class="p">)</span> <span class="k">if</span> <span class="n">TCP</span> <span class="ow">in</span> <span class="n">pkt</span> <span class="k">else</span> <span class="kc">None</span>
+            <span class="n">k</span> <span class="o">=</span> <span class="n">key_from_pkt</span><span class="p">(</span><span class="n">pkt</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">k</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="n">features</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="p">[])</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">ts</span><span class="p">,</span> <span class="n">plen</span><span class="p">,</span> <span class="n">paylen</span><span class="p">,</span> <span class="n">tw</span><span class="p">,</span> <span class="n">tf</span><span class="p">))</span>
+
+    <span class="n">rows</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">sport</span><span class="p">,</span> <span class="n">dst</span><span class="p">,</span> <span class="n">dport</span><span class="p">,</span> <span class="n">proto</span><span class="p">),</span> <span class="n">arr</span> <span class="ow">in</span> <span class="n">features</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="n">arr</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">t</span><span class="p">:</span> <span class="n">t</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">times</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">a</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">arr</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+        <span class="n">lens</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">a</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">arr</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+        <span class="n">pays</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">a</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">arr</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+        <span class="n">wins</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">a</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">arr</span> <span class="k">if</span> <span class="n">a</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+        <span class="n">flags</span> <span class="o">=</span> <span class="p">[</span><span class="n">a</span><span class="p">[</span><span class="mi">4</span><span class="p">]</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">arr</span> <span class="k">if</span> <span class="n">a</span><span class="p">[</span><span class="mi">4</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">]</span>
+        <span class="n">iats</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">times</span><span class="p">)</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">times</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.0</span><span class="p">])</span>
+        <span class="n">rows</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="p">{</span>
+                <span class="s2">&quot;ip.src&quot;</span><span class="p">:</span> <span class="n">src</span><span class="p">,</span>
+                <span class="s2">&quot;srcport&quot;</span><span class="p">:</span> <span class="n">sport</span><span class="p">,</span>
+                <span class="s2">&quot;ip.dst&quot;</span><span class="p">:</span> <span class="n">dst</span><span class="p">,</span>
+                <span class="s2">&quot;dstport&quot;</span><span class="p">:</span> <span class="n">dport</span><span class="p">,</span>
+                <span class="s2">&quot;proto&quot;</span><span class="p">:</span> <span class="n">proto</span><span class="p">,</span>
+                <span class="s2">&quot;stime&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">times</span><span class="o">.</span><span class="n">min</span><span class="p">()),</span>
+                <span class="s2">&quot;ltime&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">times</span><span class="o">.</span><span class="n">max</span><span class="p">()),</span>
+                <span class="s2">&quot;dur&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">times</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">-</span> <span class="n">times</span><span class="o">.</span><span class="n">min</span><span class="p">()),</span>
+                <span class="s2">&quot;pkts&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">arr</span><span class="p">)),</span>
+                <span class="s2">&quot;bytes&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">lens</span><span class="o">.</span><span class="n">sum</span><span class="p">()),</span>
+                <span class="s2">&quot;payload_bytes&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">pays</span><span class="o">.</span><span class="n">sum</span><span class="p">()),</span>
+                <span class="s2">&quot;pkt_len_mean&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">lens</span><span class="o">.</span><span class="n">mean</span><span class="p">()),</span>
+                <span class="s2">&quot;pkt_len_std&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">lens</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="n">ddof</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">lens</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="mf">0.0</span><span class="p">),</span>
+                <span class="s2">&quot;iat_mean&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">iats</span><span class="o">.</span><span class="n">mean</span><span class="p">()),</span>
+                <span class="s2">&quot;iat_std&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">iats</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="n">ddof</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">iats</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="mf">0.0</span><span class="p">),</span>
+                <span class="s2">&quot;tcp_window_mean&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">wins</span><span class="o">.</span><span class="n">mean</span><span class="p">())</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">wins</span><span class="p">)</span> <span class="k">else</span> <span class="mf">0.0</span><span class="p">,</span>
+                <span class="s2">&quot;syn_cnt&quot;</span><span class="p">:</span> <span class="nb">sum</span><span class="p">(</span><span class="mi">1</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">flags</span> <span class="k">if</span> <span class="n">f</span> <span class="o">&amp;</span> <span class="mh">0x02</span><span class="p">),</span>
+                <span class="s2">&quot;fin_cnt&quot;</span><span class="p">:</span> <span class="nb">sum</span><span class="p">(</span><span class="mi">1</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">flags</span> <span class="k">if</span> <span class="n">f</span> <span class="o">&amp;</span> <span class="mh">0x01</span><span class="p">),</span>
+                <span class="s2">&quot;rst_cnt&quot;</span><span class="p">:</span> <span class="nb">sum</span><span class="p">(</span><span class="mi">1</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">flags</span> <span class="k">if</span> <span class="n">f</span> <span class="o">&amp;</span> <span class="mh">0x04</span><span class="p">),</span>
+                <span class="s2">&quot;ack_cnt&quot;</span><span class="p">:</span> <span class="nb">sum</span><span class="p">(</span><span class="mi">1</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">flags</span> <span class="k">if</span> <span class="n">f</span> <span class="o">&amp;</span> <span class="mh">0x10</span><span class="p">),</span>
+                <span class="s2">&quot;psh_cnt&quot;</span><span class="p">:</span> <span class="nb">sum</span><span class="p">(</span><span class="mi">1</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">flags</span> <span class="k">if</span> <span class="n">f</span> <span class="o">&amp;</span> <span class="mh">0x08</span><span class="p">),</span>
+            <span class="p">}</span>
+        <span class="p">)</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">rows</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">df</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;[WARN] No flows after extraction (Scapy).&quot;</span><span class="p">,</span> <span class="n">file</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stderr</span><span class="p">)</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+            <span class="n">columns</span><span class="o">=</span><span class="p">[</span>
+                <span class="s2">&quot;ip.src&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;srcport&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;ip.dst&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;dstport&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;proto&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;stime&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;ltime&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;dur&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;pkts&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;bytes&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;payload_bytes&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;pkt_len_mean&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;pkt_len_std&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;iat_mean&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;iat_std&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;tcp_window_mean&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;syn_cnt&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;fin_cnt&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;rst_cnt&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;ack_cnt&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;psh_cnt&quot;</span><span class="p">,</span>
+            <span class="p">]</span>
+        <span class="p">)</span>
+    <span class="n">df</span><span class="p">[</span><span class="s2">&quot;flow_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">df</span><span class="p">[</span><span class="s2">&quot;ip.src&quot;</span><span class="p">]</span>
+        <span class="o">+</span> <span class="s2">&quot;:&quot;</span>
+        <span class="o">+</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;srcport&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span>
+        <span class="o">+</span> <span class="s2">&quot;→&quot;</span>
+        <span class="o">+</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;ip.dst&quot;</span><span class="p">]</span>
+        <span class="o">+</span> <span class="s2">&quot;:&quot;</span>
+        <span class="o">+</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;dstport&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span>
+        <span class="o">+</span> <span class="s2">&quot;/&quot;</span>
+        <span class="o">+</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;proto&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span>
+        <span class="o">+</span> <span class="s2">&quot;@&quot;</span>
+        <span class="o">+</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;stime&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span>
+    <span class="p">)</span>
+    <span class="n">ensure_dir</span><span class="p">(</span><span class="n">out_csv</span><span class="p">)</span>
+    <span class="n">df</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">out_csv</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">out_csv</span></div>
+
+
+<span class="c1"># Generate CSV of flows via NTLFlowLyzer</span>
+<div class="viewcode-block" id="extract_with_ntlflowlyzer">
+<a class="viewcode-back" href="../feat.html#feat.extract_with_ntlflowlyzer">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">extract_with_ntlflowlyzer</span><span class="p">(</span><span class="n">pcap</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">out_csv</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Path</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Feature extraction with NTLFlowLyzer</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        pcap (Path): Path to pcap file</span>
+<span class="sd">        out_csv (Path): Path to outuput csv file</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Optional[Path]: Path to extracted csv file</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">ntlfl</span> <span class="o">=</span> <span class="n">which_or_none</span><span class="p">(</span><span class="s2">&quot;ntlflowlyzer&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">ntlfl</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="n">ensure_dir</span><span class="p">(</span><span class="n">out_csv</span><span class="p">)</span>
+    <span class="c1"># Typical CLI: ntlflowlyzer -c ./NTLFlowLyzer/config.json</span>
+    <span class="n">base_file</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;./base.json&quot;</span><span class="p">)</span>
+    <span class="n">config_file</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;./NTLFlowLyzer/tlflconfig.json&quot;</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">base_file</span><span class="p">,</span> <span class="s1">&#39;r&#39;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s1">&#39;utf-8&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">config_data</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+        <span class="n">config_data</span><span class="p">[</span><span class="s2">&quot;pcap_file_address&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;./&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">pcap</span><span class="p">)</span>
+        <span class="n">config_data</span><span class="p">[</span><span class="s2">&quot;output_file_address&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;./&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">out_csv</span><span class="p">)</span>
+
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">config_file</span><span class="p">,</span> <span class="s1">&#39;w&#39;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s1">&#39;utf-8&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">config_data</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">ensure_ascii</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+          
+    <span class="k">finally</span><span class="p">:</span>
+        <span class="n">run_cmd</span><span class="p">([</span><span class="n">ntlfl</span><span class="p">,</span> <span class="s2">&quot;-c&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">config_file</span><span class="p">)])</span>
+        <span class="k">return</span> <span class="n">out_csv</span>
+        <span class="k">if</span> <span class="n">config_file</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+            <span class="n">config_file</span><span class="o">.</span><span class="n">unlink</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="extract_features">
+<a class="viewcode-back" href="../feat.html#feat.extract_features">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">extract_features</span><span class="p">(</span><span class="n">pcap</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">out_dir</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Path</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Attempts to extract as many features as possible by combining tools.</span>
+<span class="sd">    Returns a list of generated CSVs (each with a subset of columns).</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        pcap (Path): Path to pcap file</span>
+<span class="sd">        out_csv (Path): Path to output csv file</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        RuntimeError: Failure: No tool was able to generate features</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        List[Path]: Path to csv files generated by available tools</span>
+<span class="sd">    &quot;&quot;&quot;</span>    
+
+    <span class="n">out_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">generated</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Path</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="c1">#1) Argus (standard tool flows)</span>
+    <span class="n">argus_csv</span> <span class="o">=</span> <span class="n">out_dir</span> <span class="o">/</span> <span class="p">(</span><span class="n">pcap</span><span class="o">.</span><span class="n">stem</span> <span class="o">+</span> <span class="s2">&quot;.argus.csv&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">extract_with_argus</span><span class="p">(</span><span class="n">pcap</span><span class="p">,</span> <span class="n">argus_csv</span><span class="p">):</span>
+        <span class="n">generated</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">argus_csv</span><span class="p">)</span>
+
+    <span class="c1">#2) CICFlowMeter (83+ IDS-oriented features)</span>
+    <span class="n">cic_csv</span> <span class="o">=</span> <span class="n">out_dir</span> <span class="o">/</span> <span class="p">(</span><span class="n">pcap</span><span class="o">.</span><span class="n">stem</span> <span class="o">+</span> <span class="s2">&quot;.cic.csv&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">extract_with_cicflowmeter</span><span class="p">(</span><span class="n">pcap</span><span class="p">,</span> <span class="n">cic_csv</span><span class="p">):</span>
+        <span class="n">generated</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">cic_csv</span><span class="p">)</span>
+
+    <span class="c1">#3) TShark per-packet → aggregation (basic features + flags)</span>
+    <span class="n">tshark_csv</span> <span class="o">=</span> <span class="n">out_dir</span> <span class="o">/</span> <span class="p">(</span><span class="n">pcap</span><span class="o">.</span><span class="n">stem</span> <span class="o">+</span> <span class="s2">&quot;.tsharkflows.csv&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">extract_with_tshark</span><span class="p">(</span><span class="n">pcap</span><span class="p">,</span> <span class="n">tshark_csv</span><span class="p">):</span>
+        <span class="n">generated</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">tshark_csv</span><span class="p">)</span>
+
+    <span class="c1">#4) NTLFlowLyzer (standard tool flows)</span>
+    <span class="n">ntlfl_csv</span> <span class="o">=</span> <span class="n">out_dir</span> <span class="o">/</span> <span class="p">(</span><span class="n">pcap</span><span class="o">.</span><span class="n">stem</span> <span class="o">+</span> <span class="s2">&quot;.ntlflowlyzer.csv&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">extract_with_ntlflowlyzer</span><span class="p">(</span><span class="n">pcap</span><span class="p">,</span> <span class="n">ntlfl_csv</span><span class="p">):</span>
+        <span class="n">generated</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ntlfl_csv</span><span class="p">)</span>
+
+    <span class="c1">#5) Fallback Scapy (always tries last to secure something)</span>
+    <span class="n">scapy_csv</span> <span class="o">=</span> <span class="n">out_dir</span> <span class="o">/</span> <span class="p">(</span><span class="n">pcap</span><span class="o">.</span><span class="n">stem</span> <span class="o">+</span> <span class="s2">&quot;.scapyflows.csv&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">extract_with_scapy</span><span class="p">(</span><span class="n">pcap</span><span class="p">,</span> <span class="n">scapy_csv</span><span class="p">):</span>
+        <span class="n">generated</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">scapy_csv</span><span class="p">)</span>
+
+    <span class="c1">#6) Something went wrong and nothing was generated</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">generated</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Failure: No tool was able to generate features.&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">generated</span></div>
+
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">AL5084</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2025, Leonardo Bitzki.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.1.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>experiment_ntl_tshark &#8212; AL5084  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=686e5160" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
+    <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for experiment_ntl_tshark</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Union</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">List</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">argparse</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">ml_unsupervised</span><span class="w"> </span><span class="kn">import</span> <span class="n">run_iforest</span><span class="p">,</span> <span class="n">run_lof</span><span class="p">,</span> <span class="n">run_kmeans_outlier</span>
+
+<span class="n">PathLike</span> <span class="o">=</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">]</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_ensure_file</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="n">PathLike</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Checks if directory/file exists</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        path (PathLike): A path to try</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        FileNotFoundError: File not found:</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Path: Path</span>
+<span class="sd">    &quot;&quot;&quot;</span>    
+    <span class="n">p</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">p</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
+        <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;File not found: </span><span class="si">{</span><span class="n">p</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">p</span>
+
+<div class="viewcode-block" id="load_ntflow_csv">
+<a class="viewcode-back" href="../experiment_ntl_tshark.html#experiment_ntl_tshark.load_ntflow_csv">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">load_ntflow_csv</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="n">PathLike</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Process NTLFlowLyzer flows in csv</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        path (PathLike): Path to NTLFlowLyzer csv file</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        pd.DataFrame: all headers</span>
+<span class="sd">    &quot;&quot;&quot;</span>    
+
+    <span class="n">p</span> <span class="o">=</span> <span class="n">_ensure_file</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">engine</span><span class="o">=</span><span class="s2">&quot;python&quot;</span><span class="p">)</span>
+
+    <span class="n">rename_map</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;protocol&quot;</span><span class="p">:</span> <span class="s2">&quot;proto&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;duration&quot;</span><span class="p">:</span> <span class="s2">&quot;dur&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;packets_count&quot;</span><span class="p">:</span> <span class="s2">&quot;pkts&quot;</span><span class="p">,</span>
+    <span class="p">}</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="n">rename_map</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="s2">&quot;label&quot;</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="s2">&quot;ntflow_label&quot;</span><span class="p">})</span>
+
+    <span class="k">if</span> <span class="s2">&quot;total_payload_bytes&quot;</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span> <span class="ow">and</span> <span class="s2">&quot;total_header_bytes&quot;</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+        <span class="n">df</span><span class="p">[</span><span class="s2">&quot;bytes&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">pd</span><span class="o">.</span><span class="n">to_numeric</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;total_payload_bytes&quot;</span><span class="p">],</span> <span class="n">errors</span><span class="o">=</span><span class="s2">&quot;coerce&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+            <span class="o">+</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_numeric</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;total_header_bytes&quot;</span><span class="p">],</span> <span class="n">errors</span><span class="o">=</span><span class="s2">&quot;coerce&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+        <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">df</span></div>
+
+
+
+<div class="viewcode-block" id="load_tsharkflows_csv">
+<a class="viewcode-back" href="../experiment_ntl_tshark.html#experiment_ntl_tshark.load_tsharkflows_csv">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">load_tsharkflows_csv</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="n">PathLike</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Process tshark flows in csv</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        path (PathLike): Path to tshark csv file</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        pd.DataFrame: Typical Header: ip.src,ip.dst,srcport,dstport,proto,stime,ltime,dur,pkts,bytes,...</span>
+<span class="sd">    &quot;&quot;&quot;</span>    
+    
+    <span class="n">p</span> <span class="o">=</span> <span class="n">_ensure_file</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">engine</span><span class="o">=</span><span class="s2">&quot;python&quot;</span><span class="p">)</span>
+
+    <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">{</span>
+        <span class="s2">&quot;ip.src&quot;</span><span class="p">:</span> <span class="s2">&quot;src_ip&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;ip.dst&quot;</span><span class="p">:</span> <span class="s2">&quot;dst_ip&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;srcport&quot;</span><span class="p">:</span> <span class="s2">&quot;src_port&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;dstport&quot;</span><span class="p">:</span> <span class="s2">&quot;dst_port&quot;</span><span class="p">,</span>
+    <span class="p">})</span>
+
+    <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;src_port&quot;</span><span class="p">,</span> <span class="s2">&quot;dst_port&quot;</span><span class="p">,</span> <span class="s2">&quot;proto&quot;</span><span class="p">,</span> <span class="s2">&quot;dur&quot;</span><span class="p">,</span> <span class="s2">&quot;pkts&quot;</span><span class="p">,</span> <span class="s2">&quot;bytes&quot;</span><span class="p">]:</span>
+        <span class="k">if</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+            <span class="n">df</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_numeric</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="n">col</span><span class="p">],</span> <span class="n">errors</span><span class="o">=</span><span class="s2">&quot;coerce&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">df</span></div>
+
+
+
+<div class="viewcode-block" id="load_scapyflows_csv">
+<a class="viewcode-back" href="../experiment_ntl_tshark.html#experiment_ntl_tshark.load_scapyflows_csv">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">load_scapyflows_csv</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="n">PathLike</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Process scapy flows in csv</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        path (PathLike): Path to scapy csv file</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        pd.DataFrame: Typical Header: ip.src,srcport,ip.dst,dstport,proto,stime,ltime,dur,pkts,bytes,payload_bytes,...</span>
+<span class="sd">    &quot;&quot;&quot;</span>  
+
+    <span class="n">p</span> <span class="o">=</span> <span class="n">_ensure_file</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">engine</span><span class="o">=</span><span class="s2">&quot;python&quot;</span><span class="p">)</span>
+
+    <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">{</span>
+        <span class="s2">&quot;ip.src&quot;</span><span class="p">:</span> <span class="s2">&quot;src_ip&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;ip.dst&quot;</span><span class="p">:</span> <span class="s2">&quot;dst_ip&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;srcport&quot;</span><span class="p">:</span> <span class="s2">&quot;src_port&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;dstport&quot;</span><span class="p">:</span> <span class="s2">&quot;dst_port&quot;</span><span class="p">,</span>
+    <span class="p">})</span>
+
+    <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;src_port&quot;</span><span class="p">,</span> <span class="s2">&quot;dst_port&quot;</span><span class="p">,</span> <span class="s2">&quot;proto&quot;</span><span class="p">,</span> <span class="s2">&quot;dur&quot;</span><span class="p">,</span> <span class="s2">&quot;pkts&quot;</span><span class="p">,</span> <span class="s2">&quot;bytes&quot;</span><span class="p">]:</span>
+        <span class="k">if</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+            <span class="n">df</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_numeric</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="n">col</span><span class="p">],</span> <span class="n">errors</span><span class="o">=</span><span class="s2">&quot;coerce&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">df</span></div>
+
+
+
+<div class="viewcode-block" id="load_other_flows_csv">
+<a class="viewcode-back" href="../experiment_ntl_tshark.html#experiment_ntl_tshark.load_other_flows_csv">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">load_other_flows_csv</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="n">PathLike</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Detects whether the CSV is from tsharkflows or scapyflows based on the columns,</span>
+<span class="sd">    loads and normalizes it appropriately.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        path (PathLike):Path to a csv file</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        ValueError: Could not detect tool</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Tuple[pd.DataFrame, str]: (df, tool_name) with tool_name in {&quot;tsharkflows&quot;, &quot;scapyflows&quot;}.</span>
+<span class="sd">    &quot;&quot;&quot;</span>    
+
+    <span class="n">p</span> <span class="o">=</span> <span class="n">_ensure_file</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+    <span class="n">df_raw</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">engine</span><span class="o">=</span><span class="s2">&quot;python&quot;</span><span class="p">)</span>
+
+    <span class="n">cols</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">df_raw</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="p">{</span><span class="s2">&quot;ip.src&quot;</span><span class="p">,</span> <span class="s2">&quot;ip.dst&quot;</span><span class="p">,</span> <span class="s2">&quot;srcport&quot;</span><span class="p">,</span> <span class="s2">&quot;dstport&quot;</span><span class="p">}</span><span class="o">.</span><span class="n">issubset</span><span class="p">(</span><span class="n">cols</span><span class="p">)</span> <span class="ow">and</span> <span class="s2">&quot;payload_bytes&quot;</span> <span class="ow">in</span> <span class="n">cols</span><span class="p">:</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">load_scapyflows_csv</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">df</span><span class="p">,</span> <span class="s2">&quot;scapyflows&quot;</span>
+
+    <span class="k">if</span> <span class="p">{</span><span class="s2">&quot;ip.src&quot;</span><span class="p">,</span> <span class="s2">&quot;ip.dst&quot;</span><span class="p">,</span> <span class="s2">&quot;srcport&quot;</span><span class="p">,</span> <span class="s2">&quot;dstport&quot;</span><span class="p">}</span><span class="o">.</span><span class="n">issubset</span><span class="p">(</span><span class="n">cols</span><span class="p">):</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">load_tsharkflows_csv</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">df</span><span class="p">,</span> <span class="s2">&quot;tsharkflows&quot;</span>
+
+    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Could not detect tool type (tshark/scapy) from columns of </span><span class="si">{</span><span class="n">p</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_add_flow_key</span><span class="p">(</span><span class="n">df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;flow_key (for intersection)</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        df (pd.DataFrame): Pandas DataFrame</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        pd.DataFrame: Pandas DataFrame with flow_key</span>
+<span class="sd">    &quot;&quot;&quot;</span>    
+
+    <span class="n">needed</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;src_ip&quot;</span><span class="p">,</span> <span class="s2">&quot;dst_ip&quot;</span><span class="p">,</span> <span class="s2">&quot;src_port&quot;</span><span class="p">,</span> <span class="s2">&quot;dst_port&quot;</span><span class="p">,</span> <span class="s2">&quot;proto&quot;</span><span class="p">]</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="n">c</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">needed</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">df</span>
+
+    <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;src_ip&quot;</span><span class="p">,</span> <span class="s2">&quot;dst_ip&quot;</span><span class="p">]:</span>
+        <span class="n">df</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">col</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;src_port&quot;</span><span class="p">,</span> <span class="s2">&quot;dst_port&quot;</span><span class="p">,</span> <span class="s2">&quot;proto&quot;</span><span class="p">]:</span>
+        <span class="n">df</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_numeric</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="n">col</span><span class="p">],</span> <span class="n">errors</span><span class="o">=</span><span class="s2">&quot;coerce&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+
+    <span class="n">df</span><span class="p">[</span><span class="s2">&quot;flow_key&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">df</span><span class="p">[</span><span class="s2">&quot;src_ip&quot;</span><span class="p">]</span>
+        <span class="o">+</span> <span class="s2">&quot;:&quot;</span>
+        <span class="o">+</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;src_port&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span>
+        <span class="o">+</span> <span class="s2">&quot;→&quot;</span>
+        <span class="o">+</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;dst_ip&quot;</span><span class="p">]</span>
+        <span class="o">+</span> <span class="s2">&quot;:&quot;</span>
+        <span class="o">+</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;dst_port&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span>
+        <span class="o">+</span> <span class="s2">&quot;/&quot;</span>
+        <span class="o">+</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;proto&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">df</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_run_algo_on_tool</span><span class="p">(</span>
+    <span class="n">algo</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
+    <span class="n">contamination</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="n">min_score</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Run one of the algorithms on df and return df_scores (anomaly_score, is_anomaly, rank)</span>
+<span class="sd">    with the same index as df.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">algo</span> <span class="o">==</span> <span class="s2">&quot;iforest&quot;</span><span class="p">:</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">scores</span> <span class="o">=</span> <span class="n">run_iforest</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">contamination</span><span class="o">=</span><span class="n">contamination</span><span class="p">,</span> <span class="n">min_score</span><span class="o">=</span><span class="n">min_score</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">algo</span> <span class="o">==</span> <span class="s2">&quot;lof&quot;</span><span class="p">:</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">scores</span> <span class="o">=</span> <span class="n">run_lof</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">contamination</span><span class="o">=</span><span class="n">contamination</span><span class="p">,</span> <span class="n">min_score</span><span class="o">=</span><span class="n">min_score</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">algo</span> <span class="o">==</span> <span class="s2">&quot;kmeans&quot;</span><span class="p">:</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">scores</span> <span class="o">=</span> <span class="n">run_kmeans_outlier</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">contamination</span><span class="o">=</span><span class="n">contamination</span><span class="p">,</span> <span class="n">min_score</span><span class="o">=</span><span class="n">min_score</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown algo: </span><span class="si">{</span><span class="n">algo</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">scores</span>
+
+<div class="viewcode-block" id="run_experiment">
+<a class="viewcode-back" href="../experiment_ntl_tshark.html#experiment_ntl_tshark.run_experiment">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">run_experiment</span><span class="p">(</span>
+    <span class="n">ntflow_csv</span><span class="p">:</span> <span class="n">PathLike</span><span class="p">,</span>
+    <span class="n">other_csv</span><span class="p">:</span> <span class="n">PathLike</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">contamination</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.05</span><span class="p">,</span>
+    <span class="n">top_n</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">15</span><span class="p">,</span>
+    <span class="n">algos</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">min_score</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Run the experiment</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        ntflow_csv (PathLike): Path to NTLFlowLyzer csv file</span>
+<span class="sd">        other_csv (PathLike): Path to another tool csv file</span>
+<span class="sd">        contamination (float, optional): contamination. Defaults to 0.05.</span>
+<span class="sd">        top_n (int, optional): How many lines to print. Defaults to 15.</span>
+<span class="sd">        algos (List[str], optional): algorith picker. Defaults to None.</span>
+<span class="sd">        min_score (float | None, optional): minimum score to consider. Defaults to None.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">algos</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">algos</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;iforest&quot;</span><span class="p">]</span>
+
+    <span class="c1">#  ntflowlyzer </span>
+    <span class="n">df_nt</span> <span class="o">=</span> <span class="n">load_ntflow_csv</span><span class="p">(</span><span class="n">ntflow_csv</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">ntflowlyzer: </span><span class="si">{</span><span class="n">df_nt</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2"> flows, </span><span class="si">{</span><span class="n">df_nt</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2"> columns&quot;</span><span class="p">)</span>
+
+    <span class="n">meta_cols_nt</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;flow_id&quot;</span><span class="p">,</span> <span class="s2">&quot;src_ip&quot;</span><span class="p">,</span> <span class="s2">&quot;dst_ip&quot;</span><span class="p">,</span> <span class="s2">&quot;src_port&quot;</span><span class="p">,</span> <span class="s2">&quot;dst_port&quot;</span><span class="p">,</span> <span class="s2">&quot;proto&quot;</span><span class="p">,</span> <span class="s2">&quot;timestamp&quot;</span><span class="p">]</span> <span class="k">if</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">df_nt</span><span class="o">.</span><span class="n">columns</span><span class="p">]</span>
+    <span class="n">meta_nt</span> <span class="o">=</span> <span class="n">df_nt</span><span class="p">[</span><span class="n">meta_cols_nt</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span> <span class="k">if</span> <span class="n">meta_cols_nt</span> <span class="k">else</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="n">df_nt</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
+
+    <span class="c1">#  other tools </span>
+    <span class="n">df_other</span><span class="p">,</span> <span class="n">tool_name</span> <span class="o">=</span> <span class="n">load_other_flows_csv</span><span class="p">(</span><span class="n">other_csv</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">tool_name</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">df_other</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2"> flows, </span><span class="si">{</span><span class="n">df_other</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2"> columns&quot;</span><span class="p">)</span>
+
+    <span class="n">meta_cols_ot</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;flow_id&quot;</span><span class="p">,</span> <span class="s2">&quot;src_ip&quot;</span><span class="p">,</span> <span class="s2">&quot;dst_ip&quot;</span><span class="p">,</span> <span class="s2">&quot;src_port&quot;</span><span class="p">,</span> <span class="s2">&quot;dst_port&quot;</span><span class="p">,</span> <span class="s2">&quot;proto&quot;</span><span class="p">,</span> <span class="s2">&quot;stime&quot;</span><span class="p">,</span> <span class="s2">&quot;ltime&quot;</span><span class="p">]</span> <span class="k">if</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">df_other</span><span class="o">.</span><span class="n">columns</span><span class="p">]</span>
+    <span class="n">meta_ot</span> <span class="o">=</span> <span class="n">df_other</span><span class="p">[</span><span class="n">meta_cols_ot</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span> <span class="k">if</span> <span class="n">meta_cols_ot</span> <span class="k">else</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="n">df_other</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
+
+    <span class="c1">#  for each algorithm </span>
+    <span class="k">for</span> <span class="n">algo</span> <span class="ow">in</span> <span class="n">algos</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span> <span class="o">+</span> <span class="s2">&quot;=&quot;</span> <span class="o">*</span> <span class="mi">60</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot; ALGORITHM: </span><span class="si">{</span><span class="n">algo</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;=&quot;</span> <span class="o">*</span> <span class="mi">60</span><span class="p">)</span>
+
+        <span class="c1"># ntflow</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">[ntflowlyzer] Running&quot;</span><span class="p">,</span> <span class="n">algo</span><span class="p">)</span>
+        <span class="n">scores_nt</span> <span class="o">=</span> <span class="n">_run_algo_on_tool</span><span class="p">(</span><span class="n">algo</span><span class="p">,</span> <span class="n">df_nt</span><span class="p">,</span> <span class="n">contamination</span><span class="o">=</span><span class="n">contamination</span><span class="p">,</span> <span class="n">min_score</span><span class="o">=</span><span class="n">min_score</span><span class="p">)</span>
+        <span class="n">res_nt</span> <span class="o">=</span> <span class="n">meta_nt</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">scores_nt</span><span class="p">)</span>
+        <span class="n">res_nt</span> <span class="o">=</span> <span class="n">_add_flow_key</span><span class="p">(</span><span class="n">res_nt</span><span class="p">)</span>
+        <span class="n">res_nt</span> <span class="o">=</span> <span class="n">res_nt</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="s2">&quot;anomaly_score&quot;</span><span class="p">,</span> <span class="n">ascending</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+        <span class="c1"># other tool</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[</span><span class="si">{</span><span class="n">tool_name</span><span class="si">}</span><span class="s2">] Running&quot;</span><span class="p">,</span> <span class="n">algo</span><span class="p">)</span>
+        <span class="n">scores_ot</span> <span class="o">=</span> <span class="n">_run_algo_on_tool</span><span class="p">(</span><span class="n">algo</span><span class="p">,</span> <span class="n">df_other</span><span class="p">,</span> <span class="n">contamination</span><span class="o">=</span><span class="n">contamination</span><span class="p">,</span> <span class="n">min_score</span><span class="o">=</span><span class="n">min_score</span><span class="p">)</span>
+        <span class="n">res_ot</span> <span class="o">=</span> <span class="n">meta_ot</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">scores_ot</span><span class="p">)</span>
+        <span class="n">res_ot</span> <span class="o">=</span> <span class="n">_add_flow_key</span><span class="p">(</span><span class="n">res_ot</span><span class="p">)</span>
+        <span class="n">res_ot</span> <span class="o">=</span> <span class="n">res_ot</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="s2">&quot;anomaly_score&quot;</span><span class="p">,</span> <span class="n">ascending</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[ntflowlyzer/</span><span class="si">{</span><span class="n">algo</span><span class="si">}</span><span class="s2">] anomalies=</span><span class="si">{</span><span class="n">res_nt</span><span class="p">[</span><span class="s1">&#39;is_anomaly&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="si">}</span><span class="s2"> de </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">res_nt</span><span class="p">)</span><span class="si">}</span><span class="s2"> flows&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[</span><span class="si">{</span><span class="n">tool_name</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">algo</span><span class="si">}</span><span class="s2">] anomalies=</span><span class="si">{</span><span class="n">res_ot</span><span class="p">[</span><span class="s1">&#39;is_anomaly&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="si">}</span><span class="s2"> de </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">res_ot</span><span class="p">)</span><span class="si">}</span><span class="s2"> flows&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Top-N</span>
+        <span class="n">anom_nt</span> <span class="o">=</span> <span class="n">res_nt</span><span class="p">[</span><span class="n">res_nt</span><span class="p">[</span><span class="s2">&quot;is_anomaly&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span><span class="p">]</span>
+        <span class="n">anom_ot</span> <span class="o">=</span> <span class="n">res_ot</span><span class="p">[</span><span class="n">res_ot</span><span class="p">[</span><span class="s2">&quot;is_anomaly&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span><span class="p">]</span>
+
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">------------------------------&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot; TOP N ANOMALIES - NTFLOWLYZER&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;------------------------------&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">anom_nt</span><span class="o">.</span><span class="n">head</span><span class="p">(</span><span class="n">top_n</span><span class="p">)</span><span class="o">.</span><span class="n">to_string</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
+
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">-------------------------------&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot; TOP N ANOMALIES - </span><span class="si">{</span><span class="n">tool_name</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;-------------------------------&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">anom_ot</span><span class="o">.</span><span class="n">head</span><span class="p">(</span><span class="n">top_n</span><span class="p">)</span><span class="o">.</span><span class="n">to_string</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
+
+
+        <span class="c1"># Intersection by flow_key</span>
+        <span class="k">if</span> <span class="s2">&quot;flow_key&quot;</span> <span class="ow">in</span> <span class="n">res_nt</span><span class="o">.</span><span class="n">columns</span> <span class="ow">and</span> <span class="s2">&quot;flow_key&quot;</span> <span class="ow">in</span> <span class="n">res_ot</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+            <span class="n">top_nt</span> <span class="o">=</span> <span class="n">anom_nt</span><span class="o">.</span><span class="n">head</span><span class="p">(</span><span class="n">top_n</span><span class="p">)</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            <span class="n">top_ot</span> <span class="o">=</span> <span class="n">anom_ot</span><span class="o">.</span><span class="n">head</span><span class="p">(</span><span class="n">top_n</span><span class="p">)</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            <span class="n">inter</span> <span class="o">=</span> <span class="n">top_nt</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span>
+                <span class="n">top_ot</span><span class="p">,</span>
+                <span class="n">on</span><span class="o">=</span><span class="s2">&quot;flow_key&quot;</span><span class="p">,</span>
+                <span class="n">how</span><span class="o">=</span><span class="s2">&quot;inner&quot;</span><span class="p">,</span>
+                <span class="n">suffixes</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;_nt&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;_</span><span class="si">{</span><span class="n">tool_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">),</span>
+            <span class="p">)</span>
+
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">----------------------------------------&quot;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot; INTERSECTION BETWEEN TOP N (flow_key)&quot;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot; (ntflowlyzer vs </span><span class="si">{</span><span class="n">tool_name</span><span class="si">}</span><span class="s2">, algo=</span><span class="si">{</span><span class="n">algo</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;----------------------------------------&quot;</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">inter</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;No intersection was found between the TOP N values ​​of the two tools.&quot;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">cols_to_show</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="p">[</span>
+                    <span class="s2">&quot;flow_key&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;src_ip_nt&quot;</span><span class="p">,</span> <span class="s2">&quot;dst_ip_nt&quot;</span><span class="p">,</span> <span class="s2">&quot;src_port_nt&quot;</span><span class="p">,</span> <span class="s2">&quot;dst_port_nt&quot;</span><span class="p">,</span> <span class="s2">&quot;proto_nt&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;anomaly_score_nt&quot;</span><span class="p">,</span> <span class="s2">&quot;rank_nt&quot;</span><span class="p">,</span>
+                    <span class="sa">f</span><span class="s2">&quot;anomaly_score_</span><span class="si">{</span><span class="n">tool_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;rank_</span><span class="si">{</span><span class="n">tool_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+                <span class="p">]:</span>
+                    <span class="k">if</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">inter</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+                        <span class="n">cols_to_show</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
+
+                <span class="c1"># If there are ranks, sort by average.</span>
+                <span class="k">if</span> <span class="s2">&quot;rank_nt&quot;</span> <span class="ow">in</span> <span class="n">inter</span><span class="o">.</span><span class="n">columns</span> <span class="ow">and</span> <span class="sa">f</span><span class="s2">&quot;rank_</span><span class="si">{</span><span class="n">tool_name</span><span class="si">}</span><span class="s2">&quot;</span> <span class="ow">in</span> <span class="n">inter</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+                    <span class="n">inter</span><span class="p">[</span><span class="s2">&quot;rank_mean&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">inter</span><span class="p">[[</span><span class="s2">&quot;rank_nt&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;rank_</span><span class="si">{</span><span class="n">tool_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+                    <span class="n">inter</span> <span class="o">=</span> <span class="n">inter</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="s2">&quot;rank_mean&quot;</span><span class="p">)</span>
+
+                <span class="nb">print</span><span class="p">(</span><span class="n">inter</span><span class="p">[</span><span class="n">cols_to_show</span><span class="p">]</span><span class="o">.</span><span class="n">to_string</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">[[WARNING] Intersection could not be calculated: &#39;flow_key&#39; missing.&quot;</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="main">
+<a class="viewcode-back" href="../experiment_ntl_tshark.html#experiment_ntl_tshark.main">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Main function with argparse</span>
+<span class="sd">    &quot;&quot;&quot;</span>    
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">(</span>
+        <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Experiment: ntflowlyzer vs tshark/scapy with various anomaly algorithms.&quot;</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--ntflow&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;CSV flows from ntflowlyzer&quot;</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--other&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;CSV flows from tsharkflows OR scapyflows&quot;</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--contamination&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span>
+                        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Expected fraction of anomalies (default: 0.05)&quot;</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--min_score&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
+                        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Minimum anomaly score (default: 0.05)&quot;</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--top-n&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mi">15</span><span class="p">,</span>
+                        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Number of most suspicious flows to show/intersect(default: 15)&quot;</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--algo&quot;</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="s2">&quot;iforest&quot;</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Algorithm: iforest, lof, kmeans ou all (default: iforest)&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">args</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">algo</span> <span class="o">==</span> <span class="s2">&quot;all&quot;</span><span class="p">:</span>
+        <span class="n">algos</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;iforest&quot;</span><span class="p">,</span> <span class="s2">&quot;lof&quot;</span><span class="p">,</span> <span class="s2">&quot;kmeans&quot;</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">algos</span> <span class="o">=</span> <span class="p">[</span><span class="n">args</span><span class="o">.</span><span class="n">algo</span><span class="p">]</span>
+
+    <span class="n">run_experiment</span><span class="p">(</span>
+        <span class="n">ntflow_csv</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">ntflow</span><span class="p">,</span>
+        <span class="n">other_csv</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">other</span><span class="p">,</span>
+        <span class="n">contamination</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">contamination</span><span class="p">,</span>
+        <span class="n">min_score</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">min_score</span><span class="p">,</span>
+        <span class="n">top_n</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">top_n</span><span class="p">,</span>
+        <span class="n">algos</span><span class="o">=</span><span class="n">algos</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="n">main</span><span class="p">()</span>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">AL5084</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2025, Leonardo Bitzki.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.1.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

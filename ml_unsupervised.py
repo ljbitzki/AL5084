@@ -11,12 +11,14 @@ from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
 
 def _threshold_by_contamination(scores: np.ndarray, contamination: float):
-    """
-    Defines a threshold based on the desired anomaly fraction.
-    - scores: array of anomaly_score (higher = more suspicious)
-    - contamination: fraction in (0, 0.5] typical, e.g.: 0.05
+    """Defines a threshold based on the desired anomaly fraction.
 
-    Returns (threshold, is_anomaly_array)
+    Args:
+        scores {np.ndarray}: array of anomaly_score (higher = more suspicious)
+        contamination {float}: fraction in [0, 0.5] typical, e.g.: {0.05}
+
+    Return:
+        (threshold, is_anomaly): threshold calculation and anomaly flag as int
     """
     scores = np.asarray(scores)
     # sanitizes contamination
@@ -51,12 +53,17 @@ def _threshold_by_contamination_and_min(
     - desired anomaly fraction (contamination, via quantile)
     - and, optionally, an absolute minimum score value (min_score).
 
+    Args:
+    scores {np.ndarray}: array of anomaly_score (higher = more suspicious)
+    contamination {float}: fraction in [0, 0.5] typical, e.g.: {0.05}
+    min_score (float | None, optional): Minimum score. Defaults to None.
+
     Behavior:
     - if min_score <= 0 or None: uses only the quantile (old behavior);
     - if min_score > 0: threshold = max(quantile, min_score).
 
     Returns:
-      (threshold, is_anomaly_array)
+      (threshold, is_anomaly): threshold calculation and anomaly flag as int
     """
     scores = np.asarray(scores)
     contamination = float(contamination)
@@ -96,7 +103,20 @@ def _check_X(X: pd.DataFrame) -> pd.DataFrame:
     - replaces inf / -inf with NaN
     - fills NaN with median (fallback 0)
     - removes constant columns
-    """
+
+    Args:
+        X (pd.DataFrame): Pandas Dataframe
+
+    Raises:
+        TypeError: X must be a pandas DataFrame.
+        ValueError: X has no rows (empty dataset).
+        ValueError: X has no numeric columns.
+        ValueError: After cleaning, no non-constant numeric features remain.
+
+    Returns:
+        pd.DataFrame: Pandas Dataframe
+    """    
+
     if not isinstance(X, pd.DataFrame):
         raise TypeError("X must be a pandas DataFrame.")
 
@@ -137,9 +157,6 @@ def _scores_to_df(
     anomaly_score: np.ndarray,
     is_anomaly: np.ndarray,
 ) -> pd.DataFrame:
-    """
-    Construct a DataFrame of scores with an index equal to X.
-    """
     df = pd.DataFrame(
         {
             "anomaly_score": anomaly_score,
@@ -147,6 +164,12 @@ def _scores_to_df(
         },
         index=X.index,
     )
+    """
+    Construct a DataFrame of scores with an index equal to X.
+
+    Returns:
+        df: DataFrame
+    """
     df["rank"] = df["anomaly_score"].rank(method="first", ascending=False).astype(int)
     df = df.sort_values("anomaly_score", ascending=False)
     return df
@@ -164,7 +187,9 @@ def run_iforest(
     Executes IsolationForest on X.
     - contamination: target fraction of anomalies (quantile)
     - min_score: if > 0, requires that anomaly_score >= min_score as well
-    Returns (iforest_model, df_scores)
+
+    Returns:
+        (iforest_model, df_scores): IsolationForest and dataframe scores
     """
     Xc = _check_X(X)
 
@@ -203,8 +228,16 @@ def run_lof(
     - contamination: target fraction of anomalies
     - min_score: if > 0, requires anomaly_score >= min_score
 
-    Returns (modelo_lof, df_scores)
-    """
+    Args:
+        X (pd.DataFrame): Pandas DataFrame
+        contamination (float, optional): contamination fraction. Defaults to 0.05.
+        min_score (float | None, optional): requires minimum anomaly_score. Defaults to None.
+        n_neighbors (int, optional): LOF neighbors. Defaults to 20.
+        standardize (bool, optional): Try StandardScaler. Defaults to True.
+
+    Returns:
+        Tuple[LocalOutlierFactor, pd.DataFrame]: LOF and dataframe
+    """    
     Xc = _check_X(X)
 
     if Xc.shape[0] <= n_neighbors:
@@ -256,7 +289,16 @@ def run_kmeans_outlier(
     - contamination: target fraction of anomalies.
     - min_score: if > 0, requires anomaly_score >= min_score.
 
-    Returns (info, df_scores)
+    Args:
+        X (pd.DataFrame): Pandas DataFrame
+        n_clusters (int, optional): _description_. Defaults to 5.
+        contamination (float, optional): contamination fraction.. Defaults to 0.05.
+        min_score (float | None, optional): requires minimum anomaly_score. Defaults to None.
+        random_state (int, optional): Initial state. Defaults to 42.
+        standardize (bool, optional): Try StandardScaler. Defaults to True.
+
+    Returns:
+        Tuple[Dict[str, Any], pd.DataFrame]: Kmeans dict and Pandas DataFrame
     """
     Xc = _check_X(X)
 
