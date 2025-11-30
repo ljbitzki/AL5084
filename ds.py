@@ -9,16 +9,15 @@ import pandas as pd
 
 PathLike = Union[str, Path]
 
-# ---------------------------------------------------------------------
-# Basic utilities
-# ---------------------------------------------------------------------
-
 def _ensure_dir(path: PathLike) -> Path:
     """
     Ensures that the 'path' directory exists.
     If 'path' has a suffix (looks like a file), it creates the parent;
     if it doesn't, it creates the path itself as a directory.
-    """
+    
+    Args:
+        p (Path): Path to try if exists
+    """  
     p = Path(path)
     if p.suffix:
         p.parent.mkdir(parents=True, exist_ok=True)
@@ -29,8 +28,16 @@ def _ensure_dir(path: PathLike) -> Path:
 
 def _detect_source_tool(df: pd.DataFrame, path: Path) -> str:
     """
-    It attempts to identify the extractor from the columns/filename.
-    """
+    Attempts to identify the extractor from the columns/filename
+
+    Args:
+        df (pd.DataFrame): Pandas DataFrame
+        path (Path): Tool path 
+
+    Returns:
+        str: Tool name
+    """    
+
     name = path.name.lower()
 
     # ntflowlyzer has many columns + 'handshake_state', 'label', 'flow_id' etc.
@@ -52,11 +59,6 @@ def _detect_source_tool(df: pd.DataFrame, path: Path) -> str:
     # fallback
     return "unknown"
 
-
-# ---------------------------------------------------------------------
-# Normalization by tool
-# ---------------------------------------------------------------------
-
 def _normalize_argus(df: pd.DataFrame) -> pd.DataFrame:
     """
     Normalizes basic Argus columns.
@@ -64,6 +66,12 @@ def _normalize_argus(df: pd.DataFrame) -> pd.DataFrame:
     stime,ltime,dur,saddr,sport,dir,daddr,dport,proto,state,pkts,bytes,...
     and below a line with:
       StartTime,LastTime,Dur,SrcAddr,Sport,...
+
+    Args:
+        df (pd.DataFrame): Pandas DataFrame
+
+    Returns:
+        pd.DataFrame: Pandas DataFrame
     """
     df = df.copy()
 
@@ -102,7 +110,14 @@ def _normalize_scapyflows(df: pd.DataFrame) -> pd.DataFrame:
     Normalizes basic columns in Scapyflows.
     Typical header:
       ip.src,srcport,ip.dst,dstport,proto,stime,ltime,dur,pkts,bytes,...
-    """
+
+    Args:
+        df (pd.DataFrame): Pandas DataFrame
+
+    Returns:
+        pd.DataFrame: Pandas DataFrame
+    """    
+
     df = df.copy()
     df = df.rename(columns={
         "ip.src": "src_ip",
@@ -117,7 +132,14 @@ def _normalize_tsharkflows(df: pd.DataFrame) -> pd.DataFrame:
     Normalizes basic tsharkflow columns.
     Typical header:
       ip.src,ip.dst,srcport,dstport,proto,stime,ltime,dur,pkts,bytes,...
-    """
+
+    Args:
+        df (pd.DataFrame): Pandas DataFrame
+
+    Returns:
+        pd.DataFrame: Pandas DataFrame
+    """    
+
     df = df.copy()
     df = df.rename(columns={
         "ip.src": "src_ip",
@@ -132,7 +154,14 @@ def _normalize_ntflowlyzer(df: pd.DataFrame) -> pd.DataFrame:
     Header (partial):
       flow_id,timestamp,src_ip,src_port,dst_ip,dst_port,protocol,duration,
       packets_count,total_payload_bytes,total_header_bytes,...,label
-    """
+
+    Args:
+        df (pd.DataFrame): Pandas DataFrame
+
+    Returns:
+        pd.DataFrame: Pandas DataFrame
+    """    
+
     df = df.copy()
 
     rename_map = {
@@ -159,7 +188,15 @@ def _normalize_common(df: pd.DataFrame, source: str) -> pd.DataFrame:
     Applies specific normalizations per tool + common adjustments.
     Ensures, when possible, columns:
       src_ip, dst_ip, src_port, dst_port, proto, dur, pkts, bytes, stime, ltime
-    """
+
+    Args:
+        df (pd.DataFrame): Pandas DataFrame
+        source (str): Tool source
+
+    Returns:
+        pd.DataFrame: Pandas DataFrame
+    """    
+
     if source == "argus":
         df = _normalize_argus(df)
     elif source == "scapyflows":
@@ -177,15 +214,22 @@ def _normalize_common(df: pd.DataFrame, source: str) -> pd.DataFrame:
     return df
 
 
-# ---------------------------------------------------------------------
-# Main functions: unsupervised mode
-# ---------------------------------------------------------------------
-
 def load_features(csv_paths: Union[PathLike, Iterable[PathLike]]) -> pd.DataFrame:
     """
     Loads one or more CSV files of features/flows (argus, scapyflows, tsharkflows, ntflowlyzer),
     detects the source, normalizes basic columns, and concatenates everything.
-    """
+
+    Args:
+        csv_paths (Union[PathLike, Iterable[PathLike]]): Paths do csvs
+
+    Raises:
+        FileNotFoundError: Feature CSV not found
+        ValueError: No feature CSVs were provided
+
+    Returns:
+        pd.DataFrame: Pandas DataFrame
+    """    
+
     if isinstance(csv_paths, (str, Path)):
         csv_paths = [csv_paths]
 
@@ -227,7 +271,16 @@ def build_dataset_unsupervised(
     source_tool -> argus / scapyflows / tsharkflows / ntflowlyzer / unknown
     __source_csv -> source file name
     Returns the resulting DataFrame and, if save=True, saves it to an outdir.
+
+    Args:
+        csv_paths (Union[PathLike, Iterable[PathLike]]): Paths do csvs
+        outdir (PathLike, optional): Output dataset directory. Defaults to "datasets".
+        save (bool, optional): Option to save in file. Defaults to True.
+
+    Returns:
+        pd.DataFrame: Pandas DataFrame
     """
+
     features = load_features(csv_paths)
 
     if save:

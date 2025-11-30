@@ -27,11 +27,33 @@ TSHARK_FIELDS = [
 ]
 
 def which_or_none(prog: str) -> Optional[str]:
-    """Checks if the executable exists"""
+    """
+    Checks if the executable exists
+
+    Args:
+        prog (str): Executable to try if exists
+
+    Returns:
+        Optional[str]: Executable in the system's path that shutil Python module locates
+    """   
     return shutil.which(prog)
 
 def run_cmd(cmd: List[str], timeout: Optional[int] = None) -> subprocess.CompletedProcess:
-    """Executes command with minimal logging and validates return."""
+    """
+    Executes command with minimal logging and validates return
+
+    Args:
+        cmd (List[str]): Command list
+        timeout (Optional[int], optional): Defines the timeout for subprocess. Defaults to None.
+
+    Raises:
+        RuntimeError: Failed to execute
+        RuntimeError: Command failed
+
+    Returns:
+        subprocess.CompletedProcess: Subprocess completed status
+    """
+
     print(f"[CMD] {' '.join(cmd)}", file=sys.stderr)
     try:
         cp = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, check=False)
@@ -45,22 +67,52 @@ def run_cmd(cmd: List[str], timeout: Optional[int] = None) -> subprocess.Complet
     return cp
 
 def ensure_dir(p: Path) -> None:
-    """Checks if directory exists"""
+    """
+    Ensures that the 'path' directory exists.
+    If 'path' has a suffix (looks like a file), it creates the parent;
+    if it doesn't, it creates the path itself as a directory.
+
+    Args:
+        p (Path): Path to try if exists
+    """
     p.parent.mkdir(parents=True, exist_ok=True)
 
 def now_epoch() -> float:
-    """Now in unix timestamp"""
+    """
+    Now in unix timestamp
+
+    Returns:
+        float: unix timestamp
+    """
     return time.time()
 
 def to_epoch(ts: datetime) -> float:
-    """Conversion to unix timestamp"""
+    """
+    Conversion to unix timestamp
+
+    Args:
+        ts (datetime): unix timestamp
+
+    Returns:
+        float: timestamp
+    """
     return ts.replace(tzinfo=timezone.utc).timestamp()
 
 # Generates CSV of flows via argus/ra (if available).
 def extract_with_argus(pcap: Path, out_csv: Path) -> Optional[Path]:
-    """Feature extraction with Argus"""
-    argus = which_or_none("argus_DISABLED")
-    ra = which_or_none("ra_DISABLED")
+    """
+    Feature extraction with Argus
+
+    Args:
+        pcap (Path): Path to pcap file
+        out_csv (Path): Patch to output csv file
+
+    Returns:
+        Optional[Path]: Path to process file with Argus
+    """    
+
+    argus = which_or_none("argus_DISABLED") # Executable name changed to disable Argus
+    ra = which_or_none("ra_DISABLED") # Executable name changed to disable ReadArgus
     if not (argus and ra):
         return None
     ensure_dir(out_csv)
@@ -88,8 +140,18 @@ def extract_with_argus(pcap: Path, out_csv: Path) -> Optional[Path]:
 
 # Generate CSV of flows via cicflowmeter (Python port)
 def extract_with_cicflowmeter(pcap: Path, out_csv: Path) -> Optional[Path]:
-    """Feature extraction with CICFlowMeter"""
-    cfm = which_or_none("cicflowmeter_DISABLED")
+    """
+    Feature extraction with CICFlowMeter
+
+    Args:
+        pcap (Path): Path to pcap file
+        out_csv (Path): Patch to output csv file
+
+    Returns:
+        Optional[Path]: Path to process file with CICFlowMeter
+    """  
+
+    cfm = which_or_none("cicflowmeter_DISABLED") # Executable name changed to disable CICFlowMeter
     if not cfm:
         return None
     ensure_dir(out_csv)
@@ -99,7 +161,16 @@ def extract_with_cicflowmeter(pcap: Path, out_csv: Path) -> Optional[Path]:
 
 # Extract per-packet flows in Python with tshark.
 def extract_with_tshark(pcap: Path, out_csv: Path) -> Optional[Path]:
-    """Feature extraction with TShark"""
+    """
+    Feature extraction with Tshark
+
+    Args:
+        pcap (Path): Path to pcap file
+        out_csv (Path): Patch to output csv file
+
+    Returns:
+        Optional[Path]: Path to process file with Tshark
+    """  
     tshark = which_or_none("tshark")
     if not tshark:
         return None
@@ -157,6 +228,14 @@ def extract_with_tshark(pcap: Path, out_csv: Path) -> Optional[Path]:
     df = df.dropna(subset=["ip.src", "ip.dst", "time"])
 
     def aggregate(group: pd.DataFrame) -> pd.Series:
+        """Aggregation group with Pandas
+
+        Args:
+            group (pd.DataFrame): Pandas DataFrame
+
+        Returns:
+            pd.Series: Pandas DataFrame
+        """        
         times = group["time"].to_numpy()
         iats = np.diff(np.sort(times)) if len(times) > 1 else np.array([0.0])
         flags = "".join(group["tcp_flags"].astype(str).tolist())
@@ -200,7 +279,12 @@ def extract_with_tshark(pcap: Path, out_csv: Path) -> Optional[Path]:
     return out_csv
 
 def flow_id(self) -> str:
-    """Return flow id"""
+    """Return flow id
+
+    Returns:
+        str: flows_id
+    """    
+
     return f"{self.src}:{self.sport}→{self.dst}:{self.dport}/{self.proto}@{self.stime:.3f}"
 SCAPY_AVAILABLE = False
 #SCAPY_AVAILABLE = True
@@ -210,7 +294,18 @@ SCAPY_AVAILABLE = False
 #    SCAPY_AVAILABLE = False
 
 def extract_with_scapy(pcap: Path, out_csv: Path) -> Optional[Path]:
-    """Python Fallback: 5-Tuple Aggregation with Essential Features."""
+    """
+    Python Fallback: 5-Tuple Aggregation with Essential Features.
+    Intentionally disabled because processing via Scapy is performed
+    with NTLFlowLyzer (which already uses Scapy as a miner).
+
+    Args:
+        pcap (Path): Path to pcap file
+        out_csv (Path): Path to outuput csv file
+
+    Returns:
+        Optional[Path]: Path to extracted csv file
+    """    
     if not SCAPY_AVAILABLE:
         return None
     features: Dict[Tuple[str, int, str, int, int], List[Tuple[float, int, int, Optional[int], Optional[int]]]] = {}
@@ -333,7 +428,17 @@ def extract_with_scapy(pcap: Path, out_csv: Path) -> Optional[Path]:
 
 # Generate CSV of flows via NTLFlowLyzer
 def extract_with_ntlflowlyzer(pcap: Path, out_csv: Path) -> Optional[Path]:
-    """Feature extraction with NTLFlowLyzer"""
+    """
+    Feature extraction with NTLFlowLyzer
+
+    Args:
+        pcap (Path): Path to pcap file
+        out_csv (Path): Path to outuput csv file
+
+    Returns:
+        Optional[Path]: Path to extracted csv file
+    """
+
     ntlfl = which_or_none("ntlflowlyzer")
     if not ntlfl:
         return None
@@ -360,7 +465,18 @@ def extract_features(pcap: Path, out_dir: Path) -> List[Path]:
     """
     Attempts to extract as many features as possible by combining tools.
     Returns a list of generated CSVs (each with a subset of columns).
-    """
+
+    Args:
+        pcap (Path): Path to pcap file
+        out_csv (Path): Path to output csv file
+
+    Raises:
+        RuntimeError: Failure: No tool was able to generate features
+
+    Returns:
+        List[Path]: Path to csv files generated by available tools
+    """    
+
     out_dir.mkdir(parents=True, exist_ok=True)
     generated: List[Path] = []
 
