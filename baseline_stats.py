@@ -141,7 +141,7 @@ def main() -> None:
     # scores_df has columns: anomaly_score, is_anomaly, rank
     scores = scores_df["anomaly_score"]
 
-    _print_score_stats(scores, args.quantis)
+    _print_score_stats(scores, args.quantiles)
 
     # Optional: Show how many anomalies there are based on the current criteria.
     num_anom = scores_df["is_anomaly"].sum()
