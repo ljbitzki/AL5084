@@ -16,7 +16,7 @@ def main() -> None:
         print(f"[ds_all] Directory not found: {features_dir.resolve()}")
         return
 
-    # Todos os CSVs dentro de features/
+    # All CSV files inside features/
     csv_paths: List[Path] = sorted(features_dir.glob("*.csv"))
 
     if not csv_paths:
@@ -35,7 +35,6 @@ def main() -> None:
     )
 
     print(f"[ds_all] Consolidated dataset saved in: {out_path}")
-
 
 if __name__ == "__main__":
     main()
