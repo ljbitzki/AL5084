@@ -8,7 +8,7 @@ import argparse
 import numpy as np
 import pandas as pd
 
-from ml_algos import run_iforest, run_lof, run_kmeans_outlier
+from ml_unsupervised import run_iforest, run_lof, run_kmeans_outlier
 
 PathLike = Union[str, Path]
 
