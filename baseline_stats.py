@@ -74,12 +74,13 @@ def _print_score_stats(scores: pd.Series, quantiles: List[float]) -> None:
     print(f"min   : {scores.min():.6f}")
     print(f"max   : {scores.max():.6f}")
     print(f"mean  : {scores.mean():.6f}")
+    print(f"med   : {scores.median():.6f}")
     print(f"std   : {scores.std(ddof=0):.6f}")
 
     print("\n=== Quantiles ===")
     q_values = scores.quantile(quantiles)
     for q, val in q_values.items():
-        print(f"q{int(q*100):3d} : {val:.6f}")
+        print(f"q {q*100}% : {val:.6f}")
 
 
 def main() -> None:
