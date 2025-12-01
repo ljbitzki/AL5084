@@ -33,6 +33,7 @@ pip install --upgrade pip
 pip install -r requirements.txt
 git clone https://github.com/ahlashkari/NTLFlowLyzer.git
 cd NTLFlowLyzer
+echo "setuptools" >> requirements.txt
 pip install -r requirements.txt
 python3 setup.py install
 cd ../
